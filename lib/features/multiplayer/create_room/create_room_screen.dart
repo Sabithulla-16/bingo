@@ -1,92 +1,83 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:uuid/uuid.dart';
 import '../../../app/router/app_routes.dart';
 import '../../../app/theme/app_colors.dart';
 import '../../../app/theme/app_radii.dart';
 import '../../../app/theme/app_typography.dart';
 import '../../../core/widgets/app_card.dart';
 import '../../../core/widgets/app_text_field.dart';
+import '../../../core/widgets/player_avatar.dart';
 import '../../../core/widgets/primary_button.dart';
 import '../../../core/widgets/responsive_scaffold.dart';
 import '../../../core/widgets/status_badge.dart';
+import '../../../data/supabase/supabase_provider.dart';
+import '../data/multiplayer_repository_provider.dart';
 
-/// Create Room Settings (Stitch Screen ID: `44f9713e773b4977b628d9679a0f371c`)
-class CreateRoomScreen extends StatefulWidget {
+/// Create Room Settings Screen (Stitch Screen ID: `44f9713e773b4977b628d9679a0f371c`)
+class CreateRoomScreen extends ConsumerStatefulWidget {
   const CreateRoomScreen({super.key});
 
   @override
-  State<CreateRoomScreen> createState() => _CreateRoomScreenState();
+  ConsumerState<CreateRoomScreen> createState() => _CreateRoomScreenState();
 }
 
-class _CreateRoomScreenState extends State<CreateRoomScreen> {
-  final _roomNameController = TextEditingController(text: "Valtry's Room");
-  int _playerCapacity = 4;
+class _CreateRoomScreenState extends ConsumerState<CreateRoomScreen> {
+  late final TextEditingController _nameController;
+  int _maxPlayers = 4;
   int _prepTimeSeconds = 45;
   int _turnTimeSeconds = 20;
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController(text: 'Bingo Game Room');
+  }
 
   @override
   void dispose() {
-    _roomNameController.dispose();
+    _nameController.dispose();
     super.dispose();
   }
 
-  Widget _buildSegmentedOption<T>({
-    required List<T> values,
-    required T selectedValue,
-    required ValueChanged<T> onSelected,
-    required String Function(T) labelBuilder,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceContainerHigh,
-        borderRadius: AppRadii.roundedFull,
-      ),
-      child: Row(
-        children: values.map((val) {
-          final isSelected = val == selectedValue;
-          return Expanded(
-            child: InkWell(
-              onTap: () => onSelected(val),
-              borderRadius: AppRadii.roundedFull,
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                decoration: BoxDecoration(
-                  color: isSelected ? AppColors.surface : Colors.transparent,
-                  borderRadius: AppRadii.roundedFull,
-                  boxShadow: isSelected
-                      ? const [
-                          BoxShadow(
-                            color: AppColors.cardShadowColor,
-                            blurRadius: 2,
-                          ),
-                        ]
-                      : null,
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  labelBuilder(val),
-                  style: AppTypography.labelSm.copyWith(
-                    color: isSelected
-                        ? AppColors.primaryNavy
-                        : AppColors.textSecondary,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ),
-          );
-        }).toList(),
-      ),
-    );
+  Future<void> _handleCreateRoom() async {
+    setState(() => _isLoading = true);
+
+    try {
+      final repo = ref.read(multiplayerRepositoryProvider);
+      final room = await repo.createRoom(
+        name: _nameController.text.trim().isEmpty
+            ? 'Bingo Room'
+            : _nameController.text.trim(),
+        maxPlayers: _maxPlayers,
+        prepTimeSeconds: _prepTimeSeconds,
+        turnTimeSeconds: _turnTimeSeconds,
+      );
+
+      if (!mounted) return;
+      context.pushReplacement(AppRoutes.multiplayerLobbyPath(room.id));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to create room: $e'),
+          backgroundColor: AppColors.errorRed,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final profile = ref.watch(currentProfileProvider);
+
     return ResponsiveScaffold(
       appBar: AppBar(
         title: Text('Room Settings', style: AppTypography.headlineSm),
+        centerTitle: true,
       ),
       body: Padding(
         padding: const EdgeInsets.symmetric(vertical: 16.0),
@@ -95,67 +86,185 @@ class _CreateRoomScreenState extends State<CreateRoomScreen> {
           children: [
             const Center(
               child: StatusBadge(
-                label: 'ROOM HOST CONFIGURATION',
+                label: 'CUSTOM MATCH CONFIG',
                 icon: Icons.tune_rounded,
               ),
             ),
             const SizedBox(height: 16),
             Text(
-              'Customize your game',
+              'Configure Your Room',
               textAlign: TextAlign.center,
               style: AppTypography.headlineLgMobile,
             ),
-            const SizedBox(height: 24),
-            AppCard(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  AppTextField(
-                    label: 'Room Name',
-                    controller: _roomNameController,
-                    hintText: 'Enter room name',
-                  ),
-                  const SizedBox(height: 20),
-                  Text('PLAYER CAPACITY', style: AppTypography.labelSm),
-                  const SizedBox(height: 8),
-                  _buildSegmentedOption<int>(
-                    values: const [2, 3, 4],
-                    selectedValue: _playerCapacity,
-                    onSelected: (val) => setState(() => _playerCapacity = val),
-                    labelBuilder: (v) => '$v Players',
-                  ),
-                  const SizedBox(height: 20),
-                  Text('BOARD PREPARATION TIME', style: AppTypography.labelSm),
-                  const SizedBox(height: 8),
-                  _buildSegmentedOption<int>(
-                    values: const [30, 45, 60],
-                    selectedValue: _prepTimeSeconds,
-                    onSelected: (val) => setState(() => _prepTimeSeconds = val),
-                    labelBuilder: (v) => '${v}s',
-                  ),
-                  const SizedBox(height: 20),
-                  Text('TURN TIME LIMIT', style: AppTypography.labelSm),
-                  const SizedBox(height: 8),
-                  _buildSegmentedOption<int>(
-                    values: const [15, 20, 30],
-                    selectedValue: _turnTimeSeconds,
-                    onSelected: (val) => setState(() => _turnTimeSeconds = val),
-                    labelBuilder: (v) => '${v}s',
-                  ),
-                ],
-              ),
+            const SizedBox(height: 4),
+            Text(
+              'Set participant capacity and game turn parameters.',
+              textAlign: TextAlign.center,
+              style: AppTypography.bodySm,
             ),
-            const Spacer(),
+            const SizedBox(height: 24),
+
+            // Room Name Input
+            AppTextField(
+              label: 'ROOM NAME',
+              hintText: 'e.g., Weekend Bingo Champs',
+              controller: _nameController,
+              prefixIcon: const Icon(Icons.badge_outlined, size: 20),
+            ),
+            const SizedBox(height: 20),
+
+            // Player Capacity Selector
+            _buildSectionHeader('MAX PLAYERS', Icons.groups_rounded),
+            const SizedBox(height: 8),
+            Row(
+              children: [2, 3, 4].map((count) {
+                final isSelected = _maxPlayers == count;
+                return Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                    child: _buildSelectablePill(
+                      label: '$count Players',
+                      isSelected: isSelected,
+                      onTap: () => setState(() => _maxPlayers = count),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 20),
+
+            // Board Preparation Timer
+            _buildSectionHeader('BOARD PREPARATION TIME', Icons.timer_outlined),
+            const SizedBox(height: 8),
+            Row(
+              children: [30, 45, 60].map((sec) {
+                final isSelected = _prepTimeSeconds == sec;
+                return Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                    child: _buildSelectablePill(
+                      label: '${sec}s',
+                      isSelected: isSelected,
+                      onTap: () => setState(() => _prepTimeSeconds = sec),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 20),
+
+            // Turn Countdown Timer
+            _buildSectionHeader('TURN TIME LIMIT', Icons.hourglass_top_rounded),
+            const SizedBox(height: 8),
+            Row(
+              children: [15, 20, 30].map((sec) {
+                final isSelected = _turnTimeSeconds == sec;
+                return Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                    child: _buildSelectablePill(
+                      label: '${sec}s',
+                      isSelected: isSelected,
+                      onTap: () => setState(() => _turnTimeSeconds = sec),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 24),
+
+            // Host Identity Snapshot
+            if (profile != null)
+              AppCard(
+                padding: const EdgeInsets.all(14),
+                backgroundColor: AppColors.surfaceContainerLow,
+                child: Row(
+                  children: [
+                    PlayerAvatar(
+                      backgroundColor: Color(
+                        int.parse(profile.avatarColorHex.replaceFirst('#', '0xFF')),
+                      ),
+                      displayName: profile.displayName,
+                      size: 38,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            profile.displayName,
+                            style: AppTypography.labelMd.copyWith(
+                              color: AppColors.primaryNavy,
+                            ),
+                          ),
+                          Text(
+                            'You will host and govern this private room.',
+                            style: AppTypography.bodySm.copyWith(fontSize: 11),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+            const SizedBox(height: 28),
+
             PrimaryButton(
               label: 'Create Room & Invite',
-              icon: Icons.check_circle_outline,
-              onPressed: () {
-                final roomId = const Uuid().v4().substring(0, 8);
-                context.push(AppRoutes.roomLobbyPath(roomId));
-              },
+              icon: Icons.rocket_launch_rounded,
+              isLoading: _isLoading,
+              onPressed: _handleCreateRoom,
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader(String label, IconData icon) {
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: AppColors.textSecondary),
+        const SizedBox(width: 6),
+        Text(
+          label,
+          style: AppTypography.labelSm.copyWith(
+            color: AppColors.textSecondary,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSelectablePill({
+    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: AppRadii.roundedFull,
+      child: Container(
+        height: 42,
+        decoration: BoxDecoration(
+          color: isSelected
+              ? AppColors.primaryNavy
+              : AppColors.surfaceContainerLow,
+          borderRadius: AppRadii.roundedFull,
+          border: Border.all(
+            color: isSelected ? AppColors.primaryNavy : AppColors.structuralBorder,
+            width: isSelected ? 1.5 : 1.0,
+          ),
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          label,
+          style: AppTypography.labelMd.copyWith(
+            color: isSelected ? AppColors.textLight : AppColors.primaryNavy,
+            fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+          ),
         ),
       ),
     );

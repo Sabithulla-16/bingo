@@ -79,18 +79,21 @@ This roadmap details the sequential milestones for taking the BINGO mobile game 
 
 ---
 
-## MILESTONE 5: Multiplayer Rooms & Lobby
-* **Focus**: Private room governance, codes, and realtime participant presence.
-* **Tasks**:
-  - Deploy PostgreSQL migrations for `profiles`, `rooms`, and `room_players`.
-  - Build `MultiplayerMenuScreen` (Create Room vs. Join with Code).
-  - Build `CreateRoomScreen` with configurable capacity (2–4 players), preparation timer, and turn timer.
-  - Build `JoinRoomScreen` with 6-character room code input and recent room history.
-  - Build `MultiplayerLobbyScreen` (Waiting Room) using Supabase Realtime for live participant updates, host controls, ready toggles, and countdown triggers.
+## MILESTONE 5: Multiplayer Rooms & Lobby [COMPLETED]
+* **Focus**: Private room governance, 6-character room codes, Supabase Realtime participant presence, and Stitch Splash animation.
+* **Deliverables**:
+  - Enhanced Splash Screen with custom animated Bingo board matching Google Stitch splash design (`projects/1917718787847945379/files/14576943151040872575`): 5×5 grid with daubed coral cells, golden star center, yellow accent cells, glowing sparkles, and diagonal animated strike painter.
+  - PostgreSQL schema migration (`docs/migrations/02_rooms_and_lobby.sql`) with tables `rooms`, `room_players`, enum types, Row Level Security (RLS) policies, and Supabase Realtime publication setup.
+  - `MultiplayerMenuScreen` (Stitch Screen 8) matching design: Host Private Room card, Join with Code card, active user identity header, and "How Multiplayer Works" rules guide.
+  - `CreateRoomScreen` (Stitch Screen 9) matching design: customizable room name, 2/3/4 player capacity selectors, board preparation duration chips (30s, 45s, 60s), and turn time limit selector (15s, 20s, 30s).
+  - `JoinRoomScreen` (Stitch Screen 10) matching design: uppercase 6-character room code input box, automatic code formatting, instant validation, and recent rooms history chips.
+  - `MultiplayerLobbyScreen` (Stitch Screen 11) matching design: live participant seat cards (Host badge, You badge, Ready status indicator), room code share/copy action, timer configuration summary badges, participant counter, Ready up toggle, and host Start Game control with full-party validation.
+  - `MultiplayerRepository` & `MultiplayerRepositoryImpl` providing reactive room streams (`watchRoom`, `watchRoomPlayers`), room creation, joining, seat assignment, ready toggling, player kick, and game launch, with offline in-memory broadcast fallback.
+  - 12 comprehensive unit and widget tests covering rooms, joining rules, seat indices, host kick permissions, ready toggling, lobby state notifier, and all 4 multiplayer UI screens (80 total project tests passing, 0 analyzer issues, debug APK successfully compiled).
 
 ---
 
-## MILESTONE 6: Multiplayer Gameplay Synchronization
+## MILESTONE 6: Multiplayer Gameplay Synchronization [IN PROGRESS]
 * **Focus**: Server-authoritative turn execution and realtime match progression.
 * **Tasks**:
   - Deploy PostgreSQL Stored Procedures / RPC:

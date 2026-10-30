@@ -6,7 +6,7 @@ import '../../../app/router/app_routes.dart';
 import '../../../app/theme/app_colors.dart';
 import '../../../app/theme/app_typography.dart';
 import '../../../core/widgets/app_loading_indicator.dart';
-import '../../../core/widgets/bingo_board_grid.dart';
+import 'widgets/splash_animated_board.dart';
 import '../../../core/widgets/bingo_logo.dart';
 import '../../../core/widgets/responsive_scaffold.dart';
 import '../../../data/supabase/supabase_provider.dart';
@@ -22,15 +22,6 @@ class SplashScreen extends ConsumerStatefulWidget {
 
 class _SplashScreenState extends ConsumerState<SplashScreen> {
   Timer? _timer;
-
-  // Sample 25-cell preview matrix matching Stitch splash screen
-  final List<int> _previewMatrix = const [
-    1, 2, 3, 4, 5,
-    6, 7, 8, 9, 10,
-    11, 12, 13, 14, 15,
-    16, 17, 18, 19, 20,
-    21, 22, 23, 24, 25,
-  ];
 
   @override
   void initState() {
@@ -94,18 +85,10 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
               // Center Stage
               Column(
                 mainAxisSize: MainAxisSize.min,
-                children: [
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 240),
-                    child: BingoBoardGrid(
-                      matrix: _previewMatrix,
-                      calledNumbers: const {1, 7, 13, 19, 25},
-                      claimedNumbers: const {1, 7, 13, 19, 25},
-                      isInteractive: false,
-                    ),
-                  ),
-                  const SizedBox(height: 28),
-                  const BingoLogo(
+                children: const [
+                  SplashAnimatedBingoBoard(size: 248),
+                  SizedBox(height: 28),
+                  BingoLogo(
                     fontSize: 42,
                     showTagline: true,
                   ),
