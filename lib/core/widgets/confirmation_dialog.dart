@@ -11,6 +11,7 @@ class ConfirmationDialog extends StatelessWidget {
   final String message;
   final String confirmLabel;
   final String cancelLabel;
+  final bool isDestructive;
   final VoidCallback onConfirm;
   final VoidCallback? onCancel;
 
@@ -20,6 +21,7 @@ class ConfirmationDialog extends StatelessWidget {
     required this.message,
     this.confirmLabel = 'CONFIRM',
     this.cancelLabel = 'CANCEL',
+    this.isDestructive = false,
     required this.onConfirm,
     this.onCancel,
   });
@@ -30,15 +32,17 @@ class ConfirmationDialog extends StatelessWidget {
     required String message,
     String confirmLabel = 'CONFIRM',
     String cancelLabel = 'CANCEL',
+    bool isDestructive = false,
   }) {
     return showDialog<bool>(
       context: context,
-      barrierColor: AppColors.primaryNavy.withAlpha(102), // 40% scrim
+      barrierColor: AppColors.scrimOverlayColor,
       builder: (context) => ConfirmationDialog(
         title: title,
         message: message,
         confirmLabel: confirmLabel,
         cancelLabel: cancelLabel,
+        isDestructive: isDestructive,
         onConfirm: () => Navigator.of(context).pop(true),
         onCancel: () => Navigator.of(context).pop(false),
       ),
@@ -94,6 +98,7 @@ class ConfirmationDialog extends StatelessWidget {
                 Expanded(
                   child: PrimaryButton(
                     label: confirmLabel,
+                    backgroundColor: isDestructive ? AppColors.errorRed : null,
                     onPressed: onConfirm,
                   ),
                 ),

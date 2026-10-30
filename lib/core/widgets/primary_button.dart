@@ -10,6 +10,7 @@ class PrimaryButton extends StatelessWidget {
   final bool isLoading;
   final IconData? icon;
   final double? width;
+  final Color? backgroundColor;
 
   const PrimaryButton({
     super.key,
@@ -18,18 +19,21 @@ class PrimaryButton extends StatelessWidget {
     this.isLoading = false,
     this.icon,
     this.width,
+    this.backgroundColor,
   });
 
   @override
   Widget build(BuildContext context) {
+    final bg = backgroundColor ?? AppColors.primaryCoral;
+
     return SizedBox(
       width: width ?? double.infinity,
       height: AppDimensions.buttonHeight,
       child: ElevatedButton(
         onPressed: isLoading ? null : onPressed,
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.primaryCoral,
-          disabledBackgroundColor: AppColors.primaryCoral.withAlpha(128),
+          backgroundColor: bg,
+          disabledBackgroundColor: bg.withAlpha(128),
           foregroundColor: AppColors.textOnPrimary,
           shape: const StadiumBorder(),
           elevation: 0,
@@ -51,12 +55,11 @@ class PrimaryButton extends StatelessWidget {
                     label.toUpperCase(),
                     style: AppTypography.labelLg.copyWith(
                       color: AppColors.textOnPrimary,
-                      letterSpacing: 1.0,
                     ),
                   ),
                   if (icon != null) ...[
                     const SizedBox(width: 8),
-                    Icon(icon, size: 20, color: AppColors.textOnPrimary),
+                    Icon(icon, size: 18, color: AppColors.textOnPrimary),
                   ],
                 ],
               ),

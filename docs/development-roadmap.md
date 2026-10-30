@@ -18,15 +18,30 @@ This roadmap details the sequential milestones for taking the BINGO mobile game 
 
 ---
 
-## MILESTONE 2: Authentication & Player Profiles
-* **Focus**: User lifecycle, session persistence, and player metadata.
-* **Tasks**:
-  - Implement full Supabase email/password authentication (registration, login, logout, password recovery).
-  - Implement session restoration on app launch with automatic redirect guards in GoRouter.
-  - Build the complete `AuthenticationScreen` matching the Stitch design (Create Account, Sign In, Forgot Password tabs).
-  - Implement idempotent player profile creation triggered on auth signup.
-  - Build `PlayerProfileScreen` with display name editing, avatar selection, and account settings.
-  - Setup local caching with secure storage for user preferences.
+## MILESTONE 2: Authentication & Player Profiles (Completed)
+* **Status**: Complete / Verified (28/28 Unit & Widget Tests Green, Debug APK Built)
+* **Deliverables**:
+  - Full Supabase email/password authentication & guest mode integration in `AuthRepository` with graceful offline fallback.
+  - Production database migration script (`docs/migrations/01_auth_and_profiles.sql`) with tables `profiles`, `player_statistics`, RLS security policies, and automatic profile trigger.
+  - Complete `AuthScreen` matching Google Stitch Screen 2 (`152948b85345400fb54e55f8ba807a09`):
+    - Segmented Create Account / Sign In switcher.
+    - 2D 5×5 miniature preview board (cells 01–25).
+    - Real-time email validation format indicator.
+    - 3-tier password strength meter (Weak/Good/Strong) and confirm password matching checker.
+    - Forgot Password recovery workflow with status notices.
+    - Registration success celebration modal displaying Player ID tag (`#VTR-8821`), Codename, and 500 starting chips balance.
+  - Complete `ProfileScreen` matching Google Stitch Screen 16 (`5e7e8a333408412990869a864a7b06f2`):
+    - Player identity card with palette-colored avatar, display name, verified player badge, and member since date.
+    - Performance 2×2 grid: Total Matches, Wins, Losses, Draws.
+    - Win Rate metric card with rounded ratio bar and formula.
+    - Winning streaks cards: Current Streak (with flame) & Best Streak (with star).
+    - Personal Highlights card: Most wins in single room, highest lines claimed, longest streak, average calls.
+    - Recent match history cards with victory/defeat/draw outcome tags.
+    - Interactive Edit Profile modal dialog with 4 avatar color palettes (`#FC695C`, `#FFD166`, `#20243A`, `#E8E5FF`) and display name editing.
+    - Audio & Game Settings bottom sheet (Sound effects & Haptic feedback toggles).
+    - Sign out confirmation modal dialog with red destructive styling.
+  - Caching & local storage resilience with `SharedPreferences` for user session, avatar palette, codename, and audio/haptics toggles.
+  - 13 new unit and widget tests covering auth repository, profile repository, auth UI, and profile UI.
 
 ---
 

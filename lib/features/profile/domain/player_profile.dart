@@ -4,6 +4,8 @@ class PlayerProfile {
   final String displayName;
   final String email;
   final String avatarId;
+  final String avatarColorHex;
+  final int chips;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -11,16 +13,44 @@ class PlayerProfile {
     required this.id,
     required this.displayName,
     required this.email,
-    this.avatarId = 'avatar_default',
+    this.avatarId = 'avatar_coral',
+    this.avatarColorHex = '#FC695C',
+    this.chips = 500,
     required this.createdAt,
     required this.updatedAt,
   });
+
+  String get shortPlayerId {
+    if (id.length <= 8) return '#${id.toUpperCase()}';
+    final cleanId = id.replaceAll('-', '').toUpperCase();
+    return '#${cleanId.substring(0, 3)}-${cleanId.substring(cleanId.length - 4)}';
+  }
+
+  String get formattedMemberSince {
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    return 'Member since ${months[createdAt.month - 1]} ${createdAt.year}';
+  }
 
   PlayerProfile copyWith({
     String? id,
     String? displayName,
     String? email,
     String? avatarId,
+    String? avatarColorHex,
+    int? chips,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -29,6 +59,8 @@ class PlayerProfile {
       displayName: displayName ?? this.displayName,
       email: email ?? this.email,
       avatarId: avatarId ?? this.avatarId,
+      avatarColorHex: avatarColorHex ?? this.avatarColorHex,
+      chips: chips ?? this.chips,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -39,12 +71,14 @@ class PlayerProfile {
       id: json['id'] as String,
       displayName: json['display_name'] as String? ?? 'Player',
       email: json['email'] as String? ?? '',
-      avatarId: json['avatar_id'] as String? ?? 'avatar_default',
+      avatarId: json['avatar_id'] as String? ?? 'avatar_coral',
+      avatarColorHex: json['avatar_color_hex'] as String? ?? '#FC695C',
+      chips: (json['chips'] as num?)?.toInt() ?? 500,
       createdAt: json['created_at'] != null
-          ? DateTime.parse(json['created_at'] as String)
+          ? DateTime.tryParse(json['created_at'] as String) ?? DateTime.now()
           : DateTime.now(),
       updatedAt: json['updated_at'] != null
-          ? DateTime.parse(json['updated_at'] as String)
+          ? DateTime.tryParse(json['updated_at'] as String) ?? DateTime.now()
           : DateTime.now(),
     );
   }
@@ -55,6 +89,8 @@ class PlayerProfile {
       'display_name': displayName,
       'email': email,
       'avatar_id': avatarId,
+      'avatar_color_hex': avatarColorHex,
+      'chips': chips,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
     };

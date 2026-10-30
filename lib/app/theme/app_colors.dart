@@ -6,6 +6,7 @@ class AppColors {
 
   // Canvas & Backgrounds
   static const Color background = Color(0xFFFAFAF7);
+  static const Color canvas = background;
   static const Color surface = Color(0xFFFFFFFF);
   static const Color surfaceContainerLow = Color(0xFFF4F4F1);
   static const Color surfaceContainer = Color(0xFFEEEEEB);
@@ -31,9 +32,12 @@ class AppColors {
   static const Color textPrimary = Color(0xFF1A1C1B);
   static const Color textSecondary = Color(0xFF46464D);
   static const Color textMuted = Color(0xFF77767D);
+  static const Color textTertiary = textMuted;
   static const Color textOnPrimary = Color(0xFFFFFFFF);
+  static const Color textLight = textOnPrimary;
 
   // Elevation & Border Strokes
   static const Color structuralBorder = Color(0x1420243A); // 8% navy stroke
   static const Color cardShadowColor = Color(0x1F20243A); // 12% navy offset
+  static const Color scrimOverlayColor = Color(0x6620243A); // 40% primary navy scrim
 }

@@ -39,6 +39,7 @@ dependencies:
   supabase_flutter: ^2.18.3
   google_fonts: ^8.2.1
   uuid: ^4.6.0
+  shared_preferences: ^2.5.4
 
 dev_dependencies:
   flutter_test:

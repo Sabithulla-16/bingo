@@ -6,7 +6,7 @@ abstract class AuthRepository {
   /// Stream of authentication state changes (authenticated, unauthenticated, initial).
   Stream<AppAuthState> get authStateChanges;
 
-  /// Current authenticated user ID, or null if guest / unauthenticated.
+  /// Current authenticated user ID, or null if unauthenticated.
   String? get currentUserId;
 
   /// Checks if there is an active persisted session.
@@ -23,7 +23,11 @@ abstract class AuthRepository {
   Future<PlayerProfile> signInWithEmail({
     required String email,
     required String password,
+    bool rememberMe = true,
   });
+
+  /// Sign in as a local / anonymous guest player for immediate gameplay.
+  Future<PlayerProfile> signInAsGuest({String? displayName});
 
   /// Send password reset instructions to the given email address.
   Future<void> sendPasswordReset(String email);

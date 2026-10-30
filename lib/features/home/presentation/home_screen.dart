@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../app/router/app_routes.dart';
 import '../../../app/theme/app_colors.dart';
+import '../../../app/theme/app_radii.dart';
 import '../../../app/theme/app_typography.dart';
 import '../../../core/widgets/app_card.dart';
 import '../../../core/widgets/bingo_logo.dart';
@@ -13,6 +14,7 @@ import '../../../core/widgets/secondary_button.dart';
 import '../../../core/widgets/status_badge.dart';
 import '../../../data/supabase/supabase_provider.dart';
 import '../../authentication/domain/auth_state.dart';
+import '../../profile/domain/player_career_stats.dart';
 
 /// Home Screen (Stitch Screen ID: `587a408834c84cee91acba026d408bad`)
 class HomeScreen extends ConsumerWidget {
@@ -21,9 +23,15 @@ class HomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authStateProvider);
-    final playerName = authState is Authenticated
-        ? authState.profile.displayName
-        : 'Player';
+    final profile = authState is Authenticated ? authState.profile : null;
+    final playerName = profile?.displayName ?? 'Player';
+    final avatarColor = _parseColor(profile?.avatarColorHex ?? '#FC695C');
+    final chips = profile?.chips ?? 500;
+
+    final statsAsync = profile != null
+        ? ref.watch(careerStatsProvider(profile.id))
+        : null;
+    final stats = statsAsync?.value ?? PlayerCareerStats.sampleData();
 
     return ResponsiveScaffold(
       body: Padding(
@@ -37,9 +45,15 @@ class HomeScreen extends ConsumerWidget {
               children: [
                 InkWell(
                   onTap: () => context.push(AppRoutes.profile),
+                  borderRadius: AppRadii.roundedLg,
                   child: Row(
                     children: [
-                      PlayerAvatar(displayName: playerName, size: 44),
+                      PlayerAvatar(
+                        displayName: playerName,
+                        size: 44,
+                        backgroundColor: avatarColor,
+                        showOnlineIndicator: true,
+                      ),
                       const SizedBox(width: 12),
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -51,12 +65,48 @@ class HomeScreen extends ConsumerWidget {
                     ],
                   ),
                 ),
-                IconButton(
-                  onPressed: () => context.push(AppRoutes.profile),
-                  icon: const Icon(
-                    Icons.settings_outlined,
-                    color: AppColors.primaryNavy,
-                  ),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.softYellow.withAlpha(40),
+                        borderRadius: AppRadii.roundedFull,
+                        border: Border.all(
+                          color: AppColors.softYellowDark.withAlpha(60),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.token_rounded,
+                            size: 14,
+                            color: AppColors.softYellowDark,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            '$chips',
+                            style: AppTypography.labelMd.copyWith(
+                              color: AppColors.softYellowDark,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      onPressed: () => context.push(AppRoutes.profile),
+                      icon: const Icon(
+                        Icons.settings_outlined,
+                        color: AppColors.primaryNavy,
+                      ),
+                      tooltip: 'Profile & Settings',
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -142,27 +192,31 @@ class HomeScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 16),
 
-            // Quick Stats Card
-            AppCard(
-              padding: const EdgeInsets.all(16),
-              backgroundColor: AppColors.surfaceContainerLow,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _buildStatItem('MATCHES', '12'),
-                  Container(
-                    height: 30,
-                    width: 1,
-                    color: AppColors.structuralBorder,
-                  ),
-                  _buildStatItem('WIN RATE', '75%'),
-                  Container(
-                    height: 30,
-                    width: 1,
-                    color: AppColors.structuralBorder,
-                  ),
-                  _buildStatItem('BEST STREAK', '4 🔥'),
-                ],
+            // Quick Stats Summary Card
+            InkWell(
+              onTap: () => context.push(AppRoutes.profile),
+              borderRadius: AppRadii.roundedLg,
+              child: AppCard(
+                padding: const EdgeInsets.all(16),
+                backgroundColor: AppColors.surfaceContainerLow,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    _buildStatItem('MATCHES', '${stats.totalMatches}'),
+                    Container(
+                      height: 30,
+                      width: 1,
+                      color: AppColors.structuralBorder,
+                    ),
+                    _buildStatItem('WIN RATE', '${stats.winRatePercentage}%'),
+                    Container(
+                      height: 30,
+                      width: 1,
+                      color: AppColors.structuralBorder,
+                    ),
+                    _buildStatItem('BEST STREAK', '${stats.bestStreak} 🔥'),
+                  ],
+                ),
               ),
             ),
           ],
@@ -179,5 +233,14 @@ class HomeScreen extends ConsumerWidget {
         Text(label, style: AppTypography.labelSm),
       ],
     );
+  }
+
+  Color _parseColor(String hex) {
+    try {
+      final clean = hex.replaceAll('#', '');
+      return Color(int.parse('0xFF$clean'));
+    } catch (_) {
+      return AppColors.primaryCoral;
+    }
   }
 }
