@@ -45,15 +45,21 @@ This roadmap details the sequential milestones for taking the BINGO mobile game 
 
 ---
 
-## MILESTONE 3: Core Bingo Game Engine
-* **Focus**: Pure Dart, server-compatible board and game logic.
-* **Tasks**:
-  - Implement `BingoBoard` domain model (matrix generation, number placement validation, shuffle algorithms).
-  - Implement `WinningLine` models (12 lines: 5 rows, 5 columns, 2 diagonals).
-  - Implement the **Overlapping Line Rule**: ensure shared cells never invalidate independent lines.
-  - Implement manual line claim detection and verification logic.
-  - Implement `BingoLetterProgress` tracking ($B \to I \to N \to G \to O$).
-  - Write comprehensive unit tests covering edge cases (simultaneous completions, diagonal intersections, full board draws).
+## MILESTONE 3: Core Bingo Game Engine (Completed)
+* **Status**: Complete / Verified (58/58 Automated Tests Green, 0 Analyzer Issues)
+* **Deliverables**:
+  - Implemented immutable 2D `BoardCoordinate` (`row`, `col`, `index` 0..24).
+  - Defined all 12 canonical `WinningLine` models (5 horizontal rows, 5 vertical columns, 2 diagonals) with intersection helpers.
+  - Implemented `BoardValidator` enforcing the strict mathematical bijection invariant ($\forall i \in \{1..25\}, \text{count}(i) = 1$) with error diagnostics.
+  - Implemented `BingoBoard` domain model with `quickShuffle` (cryptographic Fisher-Yates permutation), matrix generation, number lookup, swap, and immutable copies.
+  - Implemented `BingoEngine`:
+    - Strict mathematical enforcement of the **Overlapping Line Invariant**: claiming one line NEVER disables or invalidates another line sharing common cells (e.g. center cell $(2,2)$ intersecting 4 lines).
+    - Manual line claim detection and verification (`claimLine`, `claimAllCompletedLines`).
+    - Letter progression tracking ($B \to I \to N \to G \to O$) and win condition evaluations (`hasBingo`).
+    - Full match draw resolution when all 25 numbers are called without 5 claimed lines.
+    - Presentation cell state evaluation (`BingoCellState`: `available`, `called`, `completedUnclaimed`, `claimed`).
+  - Implemented `AiDecisionEngine` with multi-tier decision heuristics for Easy, Medium, and Hard computer opponents.
+  - Created 30 new unit tests covering coordinates, lines, validator, board operations, AI decisions, and edge-case line overlap validations.
 
 ---
 
