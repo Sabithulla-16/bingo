@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../authentication/domain/auth_repository.dart';
 import '../../profile/domain/player_profile.dart';
 import '../../profile/domain/profile_repository.dart';
+import '../domain/multiplayer_game.dart';
 import '../domain/room.dart';
 import 'multiplayer_repository.dart';
 
@@ -17,6 +18,11 @@ class MultiplayerRepositoryImpl implements MultiplayerRepository {
   final Map<String, List<RoomPlayer>> _localPlayers = {};
   final Map<String, StreamController<Room>> _roomControllers = {};
   final Map<String, StreamController<List<RoomPlayer>>> _playersControllers = {};
+
+  final Map<String, MultiplayerGame> _localGames = {};
+  final Map<String, List<MultiplayerPlayerState>> _localGamePlayers = {};
+  final Map<String, StreamController<MultiplayerGame>> _gameControllers = {};
+  final Map<String, StreamController<List<MultiplayerPlayerState>>> _gamePlayersControllers = {};
 
   MultiplayerRepositoryImpl({
     SupabaseClient? supabaseClient,
@@ -373,6 +379,305 @@ class MultiplayerRepositoryImpl implements MultiplayerRepository {
   void _emitPlayersUpdate(String roomId) {
     final players = _localPlayers[roomId];
     final controller = _playersControllers[roomId];
+    if (players != null && controller != null && !controller.isClosed) {
+      controller.add(List.unmodifiable(players));
+    }
+  }
+
+  // --- GAMEPLAY SYNCHRONIZATION IMPLEMENTATION ---
+
+  @override
+  Future<MultiplayerGame> getGameForRoom(String roomId) async {
+    if (_isOnline) {
+      try {
+        final res = await _supabaseClient!
+            .from('games')
+            .select()
+            .eq('room_id', roomId)
+            .order('created_at', ascending: false)
+            .limit(1)
+            .maybeSingle();
+
+        if (res != null) {
+          return MultiplayerGame.fromJson(res);
+        }
+      } catch (_) {}
+    }
+
+    // In-memory fallback
+    var game = _localGames.values.where((g) => g.roomId == roomId).firstOrNull;
+    if (game == null) {
+      final room = await getRoom(roomId);
+      final prepSec = room?.prepTimeSeconds ?? 45;
+      final gameId = 'game_${DateTime.now().millisecondsSinceEpoch}';
+
+      game = MultiplayerGame(
+        id: gameId,
+        roomId: roomId,
+        status: MultiplayerGameStatus.preparing,
+        prepDeadline: DateTime.now().add(Duration(seconds: prepSec)),
+        roundNumber: 1,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+
+      _localGames[gameId] = game;
+
+      // Seed player states from room players
+      final roomPlayers = await getRoomPlayers(roomId);
+      final states = roomPlayers.map((rp) {
+        return MultiplayerPlayerState(
+          userId: rp.userId,
+          displayName: rp.displayName,
+          avatarColorHex: rp.avatarColorHex,
+          isHost: rp.isHost,
+          seatIndex: rp.seatIndex,
+          isBoardConfirmed: false,
+          linesClaimed: 0,
+        );
+      }).toList();
+
+      _localGamePlayers[gameId] = states;
+      _emitGameUpdate(gameId);
+      _emitGamePlayersUpdate(gameId);
+    }
+
+    return game;
+  }
+
+  @override
+  Stream<MultiplayerGame> watchGame(String gameId) {
+    final controller = _gameControllers.putIfAbsent(
+      gameId,
+      () => StreamController<MultiplayerGame>.broadcast(),
+    );
+
+    final local = _localGames[gameId];
+    if (local != null && !controller.isClosed) {
+      scheduleMicrotask(() {
+        if (!controller.isClosed) controller.add(local);
+      });
+    }
+
+    return controller.stream;
+  }
+
+  @override
+  Stream<List<MultiplayerPlayerState>> watchGamePlayers(String gameId) {
+    final controller = _gamePlayersControllers.putIfAbsent(
+      gameId,
+      () => StreamController<List<MultiplayerPlayerState>>.broadcast(),
+    );
+
+    final local = _localGamePlayers[gameId];
+    if (local != null && !controller.isClosed) {
+      scheduleMicrotask(() {
+        if (!controller.isClosed) controller.add(List.unmodifiable(local));
+      });
+    }
+
+    return controller.stream;
+  }
+
+  @override
+  Future<void> submitBoard({
+    required String gameId,
+    required List<int> numbers,
+  }) async {
+    if (numbers.length != 25) {
+      throw ArgumentError('Board must contain exactly 25 numbers');
+    }
+
+    final userId = _authRepository.currentUserId ?? 'current_user';
+
+    if (_isOnline) {
+      try {
+        await _supabaseClient!.rpc('rpc_submit_board', params: {
+          'p_game_id': gameId,
+          'p_board': numbers,
+        });
+        return;
+      } catch (_) {}
+    }
+
+    // In-memory fallback
+    final players = _localGamePlayers[gameId];
+    if (players != null) {
+      final index = players.indexWhere((p) => p.userId == userId);
+      if (index != -1) {
+        players[index] = players[index].copyWith(
+          boardNumbers: List.unmodifiable(numbers),
+          isBoardConfirmed: true,
+        );
+      } else {
+        players.add(MultiplayerPlayerState(
+          userId: userId,
+          displayName: 'Player',
+          avatarColorHex: '#FF6B5E',
+          boardNumbers: List.unmodifiable(numbers),
+          isBoardConfirmed: true,
+        ));
+      }
+
+      // Check if all players confirmed
+      final allConfirmed = players.every((p) => p.isBoardConfirmed);
+      if (allConfirmed && players.length >= 2) {
+        final game = _localGames[gameId];
+        if (game != null) {
+          final room = _localRooms[game.roomId];
+          final turnSec = room?.turnTimeSeconds ?? 20;
+          final hostId = room?.hostId ?? players.first.userId;
+
+          _localGames[gameId] = game.copyWith(
+            status: MultiplayerGameStatus.inProgress,
+            currentTurnUserId: hostId,
+            turnDeadline: DateTime.now().add(Duration(seconds: turnSec)),
+            updatedAt: DateTime.now(),
+          );
+          _emitGameUpdate(gameId);
+
+          if (room != null) {
+            _localRooms[game.roomId] = room.copyWith(status: RoomStatus.inProgress);
+            _emitRoomUpdate(game.roomId);
+          }
+        }
+      }
+
+      _emitGamePlayersUpdate(gameId);
+    }
+  }
+
+  @override
+  Future<void> callNumber({
+    required String gameId,
+    required int number,
+  }) async {
+    if (_isOnline) {
+      try {
+        await _supabaseClient!.rpc('rpc_call_number', params: {
+          'p_game_id': gameId,
+          'p_number': number,
+        });
+        return;
+      } catch (_) {}
+    }
+
+    // In-memory fallback
+    final game = _localGames[gameId];
+    if (game == null) throw StateError('Game not found');
+    if (game.status != MultiplayerGameStatus.inProgress) {
+      throw StateError('Game is not in progress');
+    }
+    if (game.isNumberCalled(number)) {
+      throw StateError('Number $number has already been called');
+    }
+
+    final players = _localGamePlayers[gameId] ?? [];
+    if (players.isEmpty) return;
+
+    // Advance turn to next player in seatIndex order
+    final currentIndex = players.indexWhere((p) => p.userId == game.currentTurnUserId);
+    final nextIndex = (currentIndex + 1) % players.length;
+    final nextUserId = players[nextIndex].userId;
+
+    final room = _localRooms[game.roomId];
+    final turnSec = room?.turnTimeSeconds ?? 20;
+
+    final updatedCalled = [...game.calledNumbers, number];
+    _localGames[gameId] = game.copyWith(
+      calledNumbers: updatedCalled,
+      currentTurnUserId: nextUserId,
+      turnDeadline: DateTime.now().add(Duration(seconds: turnSec)),
+      updatedAt: DateTime.now(),
+    );
+
+    _emitGameUpdate(gameId);
+  }
+
+  @override
+  Future<bool> claimLine({
+    required String gameId,
+    required String lineType,
+    required List<int> numbers,
+  }) async {
+    final userId = _authRepository.currentUserId ?? 'current_user';
+
+    if (_isOnline) {
+      try {
+        final result = await _supabaseClient!.rpc('rpc_claim_line', params: {
+          'p_game_id': gameId,
+          'p_line_type': lineType,
+          'p_numbers': numbers,
+        });
+        return result as bool? ?? false;
+      } catch (_) {}
+    }
+
+    // In-memory fallback
+    final game = _localGames[gameId];
+    final players = _localGamePlayers[gameId];
+    if (game == null || players == null) return false;
+
+    final index = players.indexWhere((p) => p.userId == userId);
+    if (index == -1) return false;
+
+    final p = players[index];
+    if (p.claimedLineTypes.contains(lineType)) return false;
+
+    final newLines = p.linesClaimed + 1;
+    final isWinner = newLines >= 5;
+
+    players[index] = p.copyWith(
+      linesClaimed: newLines,
+      claimedLineTypes: [...p.claimedLineTypes, lineType],
+      isWinner: isWinner,
+    );
+
+    if (isWinner) {
+      _localGames[gameId] = game.copyWith(
+        status: MultiplayerGameStatus.completed,
+        winnerUserId: userId,
+        updatedAt: DateTime.now(),
+      );
+      _emitGameUpdate(gameId);
+
+      final room = _localRooms[game.roomId];
+      if (room != null) {
+        _localRooms[game.roomId] = room.copyWith(status: RoomStatus.completed);
+        _emitRoomUpdate(game.roomId);
+      }
+    }
+
+    _emitGamePlayersUpdate(gameId);
+    return isWinner;
+  }
+
+  @override
+  Future<void> extendPrepTime({
+    required String gameId,
+    int extensionSeconds = 30,
+  }) async {
+    final game = _localGames[gameId];
+    if (game != null) {
+      _localGames[gameId] = game.copyWith(
+        prepDeadline: game.prepDeadline.add(Duration(seconds: extensionSeconds)),
+        updatedAt: DateTime.now(),
+      );
+      _emitGameUpdate(gameId);
+    }
+  }
+
+  void _emitGameUpdate(String gameId) {
+    final game = _localGames[gameId];
+    final controller = _gameControllers[gameId];
+    if (game != null && controller != null && !controller.isClosed) {
+      controller.add(game);
+    }
+  }
+
+  void _emitGamePlayersUpdate(String gameId) {
+    final players = _localGamePlayers[gameId];
+    final controller = _gamePlayersControllers[gameId];
     if (players != null && controller != null && !controller.isClosed) {
       controller.add(List.unmodifiable(players));
     }

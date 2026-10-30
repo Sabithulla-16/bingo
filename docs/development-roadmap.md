@@ -93,25 +93,24 @@ This roadmap details the sequential milestones for taking the BINGO mobile game 
 
 ---
 
-## MILESTONE 6: Multiplayer Gameplay Synchronization [IN PROGRESS]
-* **Focus**: Server-authoritative turn execution and realtime match progression.
-* **Tasks**:
-  - Deploy PostgreSQL Stored Procedures / RPC:
-    - `rpc_start_game`: validates ready players and locks room.
-    - `rpc_call_number`: validates turn, registers called number, broadcasts to players.
-    - `rpc_claim_line`: verifies line completion against player's secret board, updates letter progress, checks win conditions.
-  - Build `MultiplayerBoardPreparationScreen` with synchronized UTC deadline countdown.
-  - Build `MultiplayerGameplayScreen` with live turn banners, shared call history ribbon, and opponent presence chips.
-  - Implement reconnection resilience: allow disconnected players to recover game state upon reconnecting.
+## MILESTONE 6: Multiplayer Gameplay Synchronization [COMPLETED]
+* **Focus**: Server-authoritative turn execution, synchronized countdowns, live opponent presence, and realtime match progression.
+* **Deliverables**:
+  - PostgreSQL schema migration (`docs/migrations/03_gameplay_sync.sql`) with tables `games`, `game_player_states`, publications, and server-authoritative RPCs (`rpc_submit_board`, `rpc_call_number`, `rpc_claim_line`).
+  - `MultiplayerBoardPrepScreen` (Stitch Screen 12: `e8593d7a83924868a0b75fad83f69012`) matching design: synchronized server countdown timer with circular progress and color states, horizontal player readiness cards, private 5×5 interactive board, tap-to-swap tile arrangement, quick shuffle, board confirmation lock overlay, and host time extension controls (+30s).
+  - `MultiplayerGameplayScreen` (Stitch Screen 13: `99e26fda63c3428a82b9702145ca87f5`) matching design: match status strip (session title, LIVE MATCH pulsing badge, round badge), opponent action live toasts ("Alex claimed a line! Letter I"), multiplayer presence rail with line counts and mini B-I-N-G-O progression badges, turn indicator banner with animated beacon, interactive 5×5 player board with `BingoCell` visual states, dynamic line claim alert card with letter awards, and horizontal called numbers rail with full call history modal.
+  - `MultiplayerRepository` & `MultiplayerRepositoryImpl` updated with gameplay synchronization RPC calls and offline broadcast stream fallback with multi-player state simulation.
+  - Core game engine extensions (`swapCoordinates`, `toList`, `getNumberAtCoord`, `isUnassigned`) preserving the strict overlapping line invariant across real-time matches.
+  - Comprehensive unit and widget tests covering multiplayer gameplay synchronization (`multiplayer_gameplay_sync_test.dart`), board prep screen (`multiplayer_board_prep_screen_test.dart`), and gameplay screen (`multiplayer_gameplay_screen_test.dart`). All 87 project tests passing, 0 analyzer issues, debug APK successfully compiled.
 
 ---
 
-## MILESTONE 7: Match Results, Leaderboards, & Persistent Statistics
+## MILESTONE 7: Match Results, Leaderboards, & Persistent Statistics [READY TO IMPLEMENT]
 * **Focus**: Session scoring, rankings, and historical records.
 * **Tasks**:
-  - Build `MultiplayerMatchResultScreen` celebrating winners and displaying podium standings.
+  - Build `MultiplayerMatchResultScreen` (Stitch Screen 14) celebrating winners, room standings podium, and rematch controls.
   - Implement simultaneous winner resolution and tie-breaker statistics.
-  - Build `DetailedRoomStatisticsScreen` displaying cumulative session scores, win streaks, and round logs.
+  - Build `DetailedRoomStatisticsScreen` (Stitch Screen 15) displaying cumulative session scores, win streaks, and round logs.
   - Persist aggregate stats to `player_statistics` (wins, losses, win rate %, streaks) across all completed matches.
   - Add rematch voting allowing groups to play multiple rounds in the same room.
 

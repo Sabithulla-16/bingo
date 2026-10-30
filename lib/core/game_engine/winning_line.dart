@@ -16,6 +16,9 @@ class WinningLine {
     required this.coordinates,
   }) : assert(coordinates.length == 5, 'A winning line must have exactly 5 cells');
 
+  /// Human-readable label for line awards (e.g. 'Row 1', 'Main Diagonal')
+  String get description => name;
+
   /// Set of all 12 predefined winning lines on a 5x5 board.
   static final List<WinningLine> allLines = [
     // 5 Horizontal Rows

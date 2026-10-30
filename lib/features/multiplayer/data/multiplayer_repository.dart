@@ -1,3 +1,4 @@
+import '../domain/multiplayer_game.dart';
 import '../domain/room.dart';
 
 abstract class MultiplayerRepository {
@@ -41,4 +42,40 @@ abstract class MultiplayerRepository {
 
   /// Stream of participants updates (joins, leaves, ready toggles) in realtime.
   Stream<List<RoomPlayer>> watchRoomPlayers(String roomId);
+
+  // --- GAMEPLAY SYNCHRONIZATION METHODS ---
+
+  /// Retrieves the active game for a room (or creates prep phase game if just starting).
+  Future<MultiplayerGame> getGameForRoom(String roomId);
+
+  /// Realtime stream of the game entity (called numbers, turn, status).
+  Stream<MultiplayerGame> watchGame(String gameId);
+
+  /// Realtime stream of all players' states (lines claimed, confirmed status).
+  Stream<List<MultiplayerPlayerState>> watchGamePlayers(String gameId);
+
+  /// Submits the player's private 25-number board and marks them ready.
+  Future<void> submitBoard({
+    required String gameId,
+    required List<int> numbers,
+  });
+
+  /// Calls an uncalled number on player's turn.
+  Future<void> callNumber({
+    required String gameId,
+    required int number,
+  });
+
+  /// Claims a completed line and returns true if this claim won the match (5 lines).
+  Future<bool> claimLine({
+    required String gameId,
+    required String lineType,
+    required List<int> numbers,
+  });
+
+  /// Allows host to extend the preparation timer if some players are not ready.
+  Future<void> extendPrepTime({
+    required String gameId,
+    int extensionSeconds = 30,
+  });
 }

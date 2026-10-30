@@ -49,6 +49,11 @@ class BingoBoard {
     return numbers[row * 5 + col];
   }
 
+  /// Returns the number located at the given BoardCoordinate.
+  int getNumberAtCoord(BoardCoordinate coord) {
+    return getNumberAt(coord.row, coord.col);
+  }
+
   /// Returns the number at linear cell index (0..24).
   int getNumberAtIndex(int index) {
     assert(index >= 0 && index < 25, 'Index out of range (0..24)');
@@ -85,6 +90,17 @@ class BingoBoard {
     updated[indexB] = temp;
     return BingoBoard(updated);
   }
+
+  /// Returns a new BingoBoard with numbers swapped at coordA and coordB.
+  BingoBoard swapCoordinates(BoardCoordinate coordA, BoardCoordinate coordB) {
+    return swapNumbers(coordA.index, coordB.index);
+  }
+
+  /// Returns a mutable copy of the underlying numbers list.
+  List<int> toList() => List<int>.from(numbers);
+
+  /// True if all 25 cells are 0 (unassigned).
+  bool get isUnassigned => numbers.every((n) => n == 0);
 
   /// Validates the board against all official rules.
   BoardValidationResult get validationResult => BoardValidator.validate(numbers);
