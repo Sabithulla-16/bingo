@@ -63,17 +63,19 @@ This roadmap details the sequential milestones for taking the BINGO mobile game 
 
 ---
 
-## MILESTONE 4: Single Player Mode
+## MILESTONE 4: Single Player Mode [COMPLETED]
 * **Focus**: Local play against an AI opponent with difficulty settings.
-* **Tasks**:
-  - Build `SinglePlayerDifficultyScreen` with Easy, Medium, and Hard selections.
-  - Build `BoardPreparationScreen` with drag-and-drop / tap-to-place numbers, quick shuffle, and board locking.
-  - Develop computer AI logic:
-    - *Easy*: Random number selection with instant line claims.
-    - *Medium*: Balanced selection favoring near-complete lines.
-    - *Hard*: Heuristic weighting evaluating intersection density across uncalled numbers.
-  - Build interactive `SinglePlayerGameplayScreen` featuring top caller HUD, ball conveyor, B-I-N-G-O progress badges, and manual line claim action.
-  - Build `SinglePlayerGameResultScreen` with rematch and score metrics.
+* **Deliverables**:
+  - `SinglePlayerDifficultyScreen` matching Stitch Screen 4 with Easy, Medium, and Hard cards, AI capability preview card, and Riverpod state synchronization.
+  - `SinglePlayerBoardPrepScreen` matching Stitch Screen 5 with interactive 5×5 grid, Quick Shuffle, Clear Board, tap-to-swap cell placement, dynamic unassigned numbers palette, and validation badge.
+  - Integrated `AiDecisionEngine` heuristics:
+    - *Easy*: Random uncalled number selection.
+    - *Medium*: Balanced selection favoring near-complete lines with 3–4 marked numbers.
+    - *Hard*: Strategic heuristic weighting evaluating intersection density across uncalled numbers.
+  - `SinglePlayerGameplayScreen` matching Stitch Screen 6 featuring top caller HUD, You vs. Bot head-to-head card with live letter progression, turn indicator banner, interactive 5×5 grid with presentation states, manual line claim action card with letter awards, and called numbers horizontal stream with full history modal bottom sheet.
+  - `SinglePlayerGameNotifier` StateNotifier coordinating match turn cycles, computer thinking simulations (configurable delay), line claims, and win/draw resolutions.
+  - `SinglePlayerResultScreen` matching Stitch Screen 7 with victory/defeat/draw status banner, B-I-N-G-O progress letters, comprehensive match statistics card, and Rematch / Home navigation.
+  - 10 new comprehensive unit and widget tests across state notifier, difficulty selection, board preparation, gameplay turn calling, line claiming, and result screens (68 total project tests passing, 0 analyzer issues, debug APK verified).
 
 ---
 

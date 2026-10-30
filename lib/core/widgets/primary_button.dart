@@ -37,6 +37,7 @@ class PrimaryButton extends StatelessWidget {
           foregroundColor: AppColors.textOnPrimary,
           shape: const StadiumBorder(),
           elevation: 0,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
         ),
         child: isLoading
             ? const SizedBox(
@@ -51,14 +52,18 @@ class PrimaryButton extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    label.toUpperCase(),
-                    style: AppTypography.labelLg.copyWith(
-                      color: AppColors.textOnPrimary,
+                  Flexible(
+                    child: Text(
+                      label.toUpperCase(),
+                      style: AppTypography.labelLg.copyWith(
+                        color: AppColors.textOnPrimary,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
                     ),
                   ),
                   if (icon != null) ...[
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 6),
                     Icon(icon, size: 18, color: AppColors.textOnPrimary),
                   ],
                 ],
