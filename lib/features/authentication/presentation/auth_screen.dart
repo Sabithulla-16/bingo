@@ -118,6 +118,33 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     return p1.isNotEmpty && p1 == p2;
   }
 
+  String _formatErrorMessage(String raw) {
+    final clean = raw
+        .replaceAll('Exception:', '')
+        .replaceAll('StateError:', '')
+        .trim();
+    final lower = clean.toLowerCase();
+
+    if (lower.contains('failed host lookup') ||
+        lower.contains('socketexception') ||
+        lower.contains('clientexception') ||
+        lower.contains('network is unreachable') ||
+        lower.contains('connection refused') ||
+        lower.contains('no address associated with hostname')) {
+      return 'Unable to reach BINGO servers. Please check your internet connection and try again.';
+    }
+    if (lower.contains('email not confirmed')) {
+      return 'Email confirmation pending. Please check your inbox or tap "Continue as Guest" below to enter immediately!';
+    }
+    if (lower.contains('invalid login credentials')) {
+      return 'Invalid email or password. Please verify your credentials or use Forgot Password.';
+    }
+    if (lower.contains('user already registered')) {
+      return 'An account with this email address already exists. Please Sign In instead.';
+    }
+    return clean;
+  }
+
   Future<void> _handleSubmit() async {
     setState(() {
       _isLoading = true;
@@ -145,7 +172,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         });
       } catch (e) {
         setState(() {
-          _errorMessage = e.toString().replaceAll('Exception:', '').trim();
+          _errorMessage = _formatErrorMessage(e.toString());
         });
       } finally {
         setState(() {
@@ -226,14 +253,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         context.go(AppRoutes.home);
       }
     } catch (e) {
-      final msg = e.toString().replaceAll('Exception:', '').trim();
       setState(() {
-        if (msg.toLowerCase().contains('email not confirmed')) {
-          _errorMessage =
-              'Email confirmation pending. Please check your inbox or tap "Play as Guest" below to enter immediately!';
-        } else {
-          _errorMessage = msg;
-        }
+        _errorMessage = _formatErrorMessage(e.toString());
       });
     } finally {
       if (mounted) {
@@ -265,14 +286,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         context.go(AppRoutes.home);
       }
     } catch (e) {
-      final msg = e.toString().replaceAll('Exception:', '').trim();
       setState(() {
-        if (msg.toLowerCase().contains('email not confirmed')) {
-          _errorMessage =
-              'Email confirmation pending. Please check your inbox or tap "Play as Guest" below to enter immediately!';
-        } else {
-          _errorMessage = msg;
-        }
+        _errorMessage = _formatErrorMessage(e.toString());
       });
     } finally {
       if (mounted) {
