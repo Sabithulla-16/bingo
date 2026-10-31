@@ -346,6 +346,40 @@ class _SinglePlayerGameplayScreenState
 
             const SizedBox(height: 12),
 
+            // Bot Line Claim Toast / Alert
+            if (gameState.botActionToast != null) ...[
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                decoration: BoxDecoration(
+                  color: AppColors.lightLavender,
+                  borderRadius: AppRadii.roundedLg,
+                  border: Border.all(
+                    color: AppColors.primaryNavy.withAlpha(50),
+                    width: 1.5,
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      Icons.bolt_rounded,
+                      size: 18,
+                      color: AppColors.primaryCoral,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      gameState.botActionToast!,
+                      style: AppTypography.labelMd.copyWith(
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.primaryNavy,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
+
             // Turn Indicator Banner
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),

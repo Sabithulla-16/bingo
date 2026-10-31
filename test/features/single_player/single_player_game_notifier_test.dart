@@ -120,5 +120,60 @@ void main() {
       notifier.callNumber(25);
       expect(notifier.state!.winner, equals(GameWinner.draw));
     });
+
+    test('bot claims multiple completed lines one by one sequentially with state updates', () async {
+      // Create notifier with short delay for test
+      final fastNotifier = SinglePlayerGameNotifier(
+        computerResponseDelay: const Duration(milliseconds: 100),
+      );
+
+      // Player board with different layout so player does not trigger bingo simultaneously
+      final customPlayerBoard = BingoBoard(List<int>.generate(25, (i) => 25 - i));
+      fastNotifier.initMatch(
+        gameId: 'sequential_test',
+        difficulty: AiDifficulty.easy,
+        playerBoard: customPlayerBoard,
+        computerBoard: botBoard, // 1..25
+      );
+
+      // Pre-call [2, 3, 4, 5] (Row 0 except 1) and [6, 11, 16, 21] (Col 0 except 1)
+      fastNotifier.state = fastNotifier.state!.copyWith(
+        calledNumbers: [2, 3, 4, 5, 6, 11, 16, 21],
+      );
+
+      // Verify bot currently has 0 completed lines
+      expect(fastNotifier.state!.computerClaimedLineIds, isEmpty);
+
+      final claimStates = <int>[];
+      final toasts = <String>[];
+      fastNotifier.addListener((state) {
+        if (state != null) {
+          claimStates.add(state.computerClaimedLineIds.length);
+          if (state.botActionToast != null) {
+            toasts.add(state.botActionToast!);
+          }
+        }
+      });
+
+      // Player calls 1, which simultaneously completes both Row 0 and Col 0 on bot's card
+      fastNotifier.callNumber(1);
+
+      // Immediately after callNumber: exactly 1 line is claimed by bot
+      expect(fastNotifier.state!.computerClaimedLineIds.length, equals(1));
+      expect(toasts, contains(contains('Letter B')));
+
+      // Wait 650ms for the sequential claim timer (500ms delay in notifier) + computer move (100ms)
+      await Future.delayed(const Duration(milliseconds: 650));
+
+      // After delay: second line was claimed one by one
+      expect(fastNotifier.state!.computerClaimedLineIds.length, equals(2));
+      expect(toasts, contains(contains('Letter I')));
+
+      // Ensure state evolved step-by-step: 1 then 2
+      expect(claimStates, contains(1));
+      expect(claimStates, contains(2));
+
+      fastNotifier.dispose();
+    });
   });
 }
