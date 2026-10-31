@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/errors/error_mapper.dart';
 import '../../../data/supabase/supabase_provider.dart';
 import '../../authentication/domain/auth_repository.dart';
 import '../data/multiplayer_repository.dart';
@@ -130,7 +131,10 @@ class MultiplayerLobbyNotifier extends StateNotifier<MultiplayerLobbyState> {
       });
     } catch (e) {
       if (mounted) {
-        state = state.copyWith(isLoading: false, errorMessage: e.toString());
+        state = state.copyWith(
+          isLoading: false,
+          errorMessage: ErrorMapper.map(e).message,
+        );
       }
     }
   }
@@ -143,7 +147,7 @@ class MultiplayerLobbyNotifier extends StateNotifier<MultiplayerLobbyState> {
       final nextReady = !current.isReady;
       await repository.toggleReady(roomId: roomId, isReady: nextReady);
     } catch (e) {
-      state = state.copyWith(errorMessage: e.toString());
+      state = state.copyWith(errorMessage: ErrorMapper.map(e).message);
     }
   }
 
@@ -153,7 +157,7 @@ class MultiplayerLobbyNotifier extends StateNotifier<MultiplayerLobbyState> {
     try {
       await repository.kickPlayer(roomId: roomId, userId: userId);
     } catch (e) {
-      state = state.copyWith(errorMessage: e.toString());
+      state = state.copyWith(errorMessage: ErrorMapper.map(e).message);
     }
   }
 
@@ -163,7 +167,7 @@ class MultiplayerLobbyNotifier extends StateNotifier<MultiplayerLobbyState> {
     try {
       await repository.startGame(roomId);
     } catch (e) {
-      state = state.copyWith(errorMessage: e.toString());
+      state = state.copyWith(errorMessage: ErrorMapper.map(e).message);
     }
   }
 
@@ -171,7 +175,7 @@ class MultiplayerLobbyNotifier extends StateNotifier<MultiplayerLobbyState> {
     try {
       await repository.leaveRoom(roomId);
     } catch (e) {
-      state = state.copyWith(errorMessage: e.toString());
+      state = state.copyWith(errorMessage: ErrorMapper.map(e).message);
     }
   }
 }

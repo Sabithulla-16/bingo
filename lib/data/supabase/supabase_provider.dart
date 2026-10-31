@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'supabase_service.dart';
 import '../../features/authentication/data/auth_repository_impl.dart';
+import '../../core/errors/error_mapper.dart';
 import '../../features/authentication/domain/auth_repository.dart';
 import '../../features/authentication/domain/auth_state.dart';
 import '../../features/profile/data/profile_repository_impl.dart';
@@ -88,7 +89,7 @@ class AuthStateNotifier extends StateNotifier<AppAuthState> {
       );
       state = Authenticated(profile);
     } catch (e) {
-      state = AuthFailure(e.toString());
+      state = AuthFailure(ErrorMapper.map(e).message);
       rethrow;
     }
   }
@@ -106,7 +107,7 @@ class AuthStateNotifier extends StateNotifier<AppAuthState> {
       );
       state = Authenticated(profile);
     } catch (e) {
-      state = AuthFailure(e.toString());
+      state = AuthFailure(ErrorMapper.map(e).message);
       rethrow;
     }
   }
@@ -118,7 +119,7 @@ class AuthStateNotifier extends StateNotifier<AppAuthState> {
       );
       state = Authenticated(profile);
     } catch (e) {
-      state = AuthFailure(e.toString());
+      state = AuthFailure(ErrorMapper.map(e).message);
       rethrow;
     }
   }

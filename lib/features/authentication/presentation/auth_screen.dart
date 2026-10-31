@@ -5,6 +5,7 @@ import '../../../app/router/app_routes.dart';
 import '../../../app/theme/app_colors.dart';
 import '../../../app/theme/app_radii.dart';
 import '../../../app/theme/app_typography.dart';
+import '../../../core/errors/error_handler.dart';
 import '../../../core/widgets/app_card.dart';
 import '../../../core/widgets/app_text_field.dart';
 import '../../../core/widgets/bingo_logo.dart';
@@ -118,31 +119,13 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     return p1.isNotEmpty && p1 == p2;
   }
 
-  String _formatErrorMessage(String raw) {
-    final clean = raw
-        .replaceAll('Exception:', '')
-        .replaceAll('StateError:', '')
-        .trim();
-    final lower = clean.toLowerCase();
-
-    if (lower.contains('failed host lookup') ||
-        lower.contains('socketexception') ||
-        lower.contains('clientexception') ||
-        lower.contains('network is unreachable') ||
-        lower.contains('connection refused') ||
-        lower.contains('no address associated with hostname')) {
-      return 'Unable to reach BINGO servers. Please check your internet connection and try again.';
-    }
-    if (lower.contains('email not confirmed')) {
-      return 'Email confirmation pending. Please check your inbox or tap "Continue as Guest" below to enter immediately!';
-    }
-    if (lower.contains('invalid login credentials')) {
-      return 'Invalid email or password. Please verify your credentials or use Forgot Password.';
-    }
-    if (lower.contains('user already registered')) {
-      return 'An account with this email address already exists. Please Sign In instead.';
-    }
-    return clean;
+  String _formatErrorMessage(Object error, {String operation = 'auth'}) {
+    final appError = ErrorHandler.handle(
+      error,
+      operation: operation,
+      presentation: ErrorPresentation.silent,
+    );
+    return appError.message;
   }
 
   Future<void> _handleSubmit() async {
@@ -172,7 +155,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         });
       } catch (e) {
         setState(() {
-          _errorMessage = _formatErrorMessage(e.toString());
+          _errorMessage = _formatErrorMessage(e);
         });
       } finally {
         setState(() {
@@ -254,7 +237,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       }
     } catch (e) {
       setState(() {
-        _errorMessage = _formatErrorMessage(e.toString());
+        _errorMessage = _formatErrorMessage(e);
       });
     } finally {
       if (mounted) {
@@ -287,7 +270,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       }
     } catch (e) {
       setState(() {
-        _errorMessage = _formatErrorMessage(e.toString());
+        _errorMessage = _formatErrorMessage(e);
       });
     } finally {
       if (mounted) {

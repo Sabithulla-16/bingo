@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/errors/error_mapper.dart';
 import '../../authentication/domain/auth_repository.dart';
 import '../../../data/supabase/supabase_provider.dart';
 import '../../multiplayer/data/multiplayer_repository.dart';
@@ -132,7 +133,10 @@ class RoomStatisticsNotifier extends StateNotifier<RoomStatisticsState> {
       }
     } catch (e) {
       if (mounted) {
-        state = state.copyWith(isLoading: false, errorMessage: e.toString());
+        state = state.copyWith(
+          isLoading: false,
+          errorMessage: ErrorMapper.map(e).message,
+        );
       }
     }
   }

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/errors/error_mapper.dart';
 import '../../authentication/domain/auth_repository.dart';
 import '../../../data/supabase/supabase_provider.dart';
 import '../../room_statistics/domain/room_statistics.dart';
@@ -223,7 +224,10 @@ class MultiplayerResultNotifier extends StateNotifier<MultiplayerResultState> {
       }
     } catch (e) {
       if (mounted) {
-        state = state.copyWith(isLoading: false, errorMessage: e.toString());
+        state = state.copyWith(
+          isLoading: false,
+          errorMessage: ErrorMapper.map(e).message,
+        );
       }
     }
   }
@@ -241,7 +245,7 @@ class MultiplayerResultNotifier extends StateNotifier<MultiplayerResultState> {
       if (mounted) {
         state = state.copyWith(
           isStartingNextRound: false,
-          errorMessage: e.toString(),
+          errorMessage: ErrorMapper.map(e).message,
         );
       }
     }

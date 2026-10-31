@@ -6,6 +6,7 @@ import '../../../app/router/app_routes.dart';
 import '../../../app/theme/app_colors.dart';
 import '../../../app/theme/app_radii.dart';
 import '../../../app/theme/app_typography.dart';
+import '../../../core/errors/error_handler.dart';
 import '../../../core/widgets/app_card.dart';
 import '../../../core/widgets/primary_button.dart';
 import '../../../core/widgets/responsive_scaffold.dart';
@@ -93,10 +94,11 @@ class _JoinRoomScreenState extends ConsumerState<JoinRoomScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _errorMessage = e
-            .toString()
-            .replaceFirst('StateError: ', '')
-            .replaceFirst('Exception: ', '');
+        _errorMessage = ErrorHandler.handle(
+          e,
+          operation: 'join_room_by_code',
+          presentation: ErrorPresentation.silent,
+        ).message;
       });
     } finally {
       if (mounted) setState(() => _isLoading = false);

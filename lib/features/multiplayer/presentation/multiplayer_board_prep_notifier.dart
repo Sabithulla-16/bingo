@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/errors/error_mapper.dart';
 import '../../../core/game_engine/bingo_board.dart';
 import '../../../core/game_engine/board_coordinate.dart';
 import '../../../data/supabase/supabase_provider.dart';
@@ -170,7 +171,10 @@ class MultiplayerBoardPrepNotifier
       });
     } catch (e) {
       if (mounted) {
-        state = state.copyWith(isLoading: false, errorMessage: e.toString());
+        state = state.copyWith(
+          isLoading: false,
+          errorMessage: ErrorMapper.map(e).message,
+        );
       }
     }
   }

@@ -8,6 +8,7 @@ import '../../../app/theme/app_typography.dart';
 import '../../../core/game_engine/board_coordinate.dart';
 import '../../../core/services/feedback_service.dart';
 import '../../../core/widgets/app_card.dart';
+import '../../../core/widgets/app_error_banner.dart';
 import '../../../core/widgets/bingo_cell.dart';
 import '../../../core/widgets/player_avatar.dart';
 import '../../../core/widgets/responsive_scaffold.dart';
@@ -117,6 +118,15 @@ class MultiplayerGameplayScreen extends ConsumerWidget {
                   // Header
                   _buildHeader(context, roomCode),
                   const SizedBox(height: 10),
+
+                  // Error Banner (e.g. connection issue or game error)
+                  if (state.errorMessage != null) ...[
+                    AppErrorBanner(
+                      message: state.errorMessage!,
+                      isDismissible: true,
+                    ),
+                    const SizedBox(height: 10),
+                  ],
 
                   // Toast Notification Banner (Live opponent action event)
                   if (state.toastNotification != null) ...[

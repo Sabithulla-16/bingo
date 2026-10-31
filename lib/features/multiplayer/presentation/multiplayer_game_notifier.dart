@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/errors/error_mapper.dart';
 import '../../../core/game_engine/bingo_board.dart';
 import '../../../core/game_engine/bingo_engine.dart';
 import '../../../core/game_engine/board_coordinate.dart';
@@ -212,7 +213,10 @@ class MultiplayerGameNotifier extends StateNotifier<MultiplayerGameState> {
       });
     } catch (e) {
       if (mounted) {
-        state = state.copyWith(isLoading: false, errorMessage: e.toString());
+        state = state.copyWith(
+          isLoading: false,
+          errorMessage: ErrorMapper.map(e).message,
+        );
       }
     }
   }
@@ -298,7 +302,7 @@ class MultiplayerGameNotifier extends StateNotifier<MultiplayerGameState> {
       await repository.callNumber(gameId: state.game!.id, number: number);
     } catch (e) {
       if (mounted) {
-        state = state.copyWith(errorMessage: 'Failed to call number: $e');
+        state = state.copyWith(errorMessage: ErrorMapper.map(e).message);
       }
     } finally {
       if (mounted) {
@@ -340,7 +344,7 @@ class MultiplayerGameNotifier extends StateNotifier<MultiplayerGameState> {
       }
     } catch (e) {
       if (mounted) {
-        state = state.copyWith(errorMessage: 'Failed to claim line: $e');
+        state = state.copyWith(errorMessage: ErrorMapper.map(e).message);
       }
     } finally {
       if (mounted) {
