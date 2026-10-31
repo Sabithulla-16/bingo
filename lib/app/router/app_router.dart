@@ -76,7 +76,17 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: AppRoutes.joinRoom,
-        builder: (context, state) => const JoinRoomScreen(),
+        builder: (context, state) {
+          final code = state.uri.queryParameters['code'];
+          return JoinRoomScreen(initialCode: code);
+        },
+      ),
+      GoRoute(
+        path: '/join/:code',
+        builder: (context, state) {
+          final code = state.pathParameters['code'];
+          return JoinRoomScreen(initialCode: code);
+        },
       ),
       GoRoute(
         path: AppRoutes.roomLobby,

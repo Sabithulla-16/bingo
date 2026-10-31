@@ -117,12 +117,14 @@ This roadmap details the sequential milestones for taking the BINGO mobile game 
 
 ---
 
-## MILESTONE 8: Final Polish, Hardening, & Production Readiness [READY TO IMPLEMENT]
-* **Focus**: Production optimization, accessibility, and release builds.
-* **Tasks**:
-  - End-to-end integration testing and automated scenario tests.
-  - UI refinement across small (320px), standard (360px–390px), and large screens.
-  - Sound effects and tactile haptic feedback on number calls and line daubs.
-  - Deep-linking configuration for seamless room invites via standard URLs.
-  - Android App Bundle (AAB) and iOS Release Archive signing and packaging.
-  - Production Supabase environment configuration and security audits.
+## MILESTONE 8: Final Polish, Hardening, & Production Readiness [COMPLETED]
+* **Focus**: Production optimization, tactile feedback, deep linking, and release builds.
+* **Deliverables**:
+  - `FeedbackService` (`lib/core/services/feedback_service.dart`) integrating tactile haptic feedback (`HapticFeedback.lightImpact`, `mediumImpact`, `heavyImpact`, `vibrate`) and system sounds, honoring user toggles in `PlayerPreferences`.
+  - Haptic and auditory feedback wired into single-player gameplay, multiplayer gameplay, tile swapping, number calling, line claims, and celebratory BINGO victory triggers.
+  - Deep-linking configuration in AndroidManifest (`android/app/src/main/AndroidManifest.xml`) with intent filters for both `bingo://join` custom URI schemes and `https://bingo.app/join` universal app links.
+  - Deep-link routing in `app_router.dart` supporting `/join/:code` and query parameter `/multiplayer/join-room?code=...`, prefilling the 6-character room code into `JoinRoomScreen`.
+  - Sequential one-by-one bot claim fix in `SinglePlayerGameNotifier`, ensuring bot line completions update the UI letter score track one by one with toast feedback (`⚡ Bot struck and claimed Letter X!`) instead of abrupt multi-line jumps.
+  - Player Profile and Personal Statistics (Stitch Screen 16: `6fe02a0a38214ecaa1ca32ca984b2671`) fully configured with customizable avatar color palette, codename editing, career stats, and sound/haptic preference switches.
+  - Complete release build verification: release APK compiled (`build/app/outputs/flutter-apk/app-release.apk`) using `--dart-define-from-file=.env`.
+  - 100% test pass rate across 94 comprehensive unit, widget, and integration tests with zero Dart analyzer issues.

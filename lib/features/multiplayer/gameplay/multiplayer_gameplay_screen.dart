@@ -6,6 +6,7 @@ import '../../../app/theme/app_colors.dart';
 import '../../../app/theme/app_radii.dart';
 import '../../../app/theme/app_typography.dart';
 import '../../../core/game_engine/board_coordinate.dart';
+import '../../../core/services/feedback_service.dart';
 import '../../../core/widgets/app_card.dart';
 import '../../../core/widgets/bingo_cell.dart';
 import '../../../core/widgets/player_avatar.dart';
@@ -27,10 +28,13 @@ class MultiplayerGameplayScreen extends ConsumerWidget {
     final state = ref.watch(multiplayerGameProvider(roomId));
     final notifier = ref.read(multiplayerGameProvider(roomId).notifier);
 
-    // Auto-navigate to result screen upon match conclusion
+    // Auto-navigate to result screen upon match conclusion and trigger haptics
     ref.listen<MultiplayerGameState>(
       multiplayerGameProvider(roomId),
       (prev, next) {
+        if (next.hasWon && (prev == null || !prev.hasWon)) {
+          ref.read(feedbackServiceProvider).victoryBingo();
+        }
         if (next.game?.status == MultiplayerGameStatus.completed) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -93,12 +97,12 @@ class MultiplayerGameplayScreen extends ConsumerWidget {
                   const SizedBox(height: 14),
 
                   // Private 5x5 Bingo Board (Center Stage)
-                  _buildPrivateBoard(state, notifier),
+                  _buildPrivateBoard(context, ref, state, notifier),
                   const SizedBox(height: 14),
 
                   // Line Claiming Interface (Shown when one or more lines are completed)
                   if (state.unclaimedCompletedLines.isNotEmpty) ...[
-                    _buildLineClaimCard(state, notifier),
+                    _buildLineClaimCard(ref, state, notifier),
                     const SizedBox(height: 14),
                   ],
 
@@ -544,6 +548,8 @@ class MultiplayerGameplayScreen extends ConsumerWidget {
   }
 
   Widget _buildPrivateBoard(
+    BuildContext context,
+    WidgetRef ref,
     MultiplayerGameState state,
     MultiplayerGameNotifier notifier,
   ) {
@@ -631,7 +637,12 @@ class MultiplayerGameplayScreen extends ConsumerWidget {
                 number: number,
                 state: cellState,
                 isInteractive: canCall,
-                onTap: canCall ? () => notifier.callNumber(number) : null,
+                onTap: canCall
+                    ? () {
+                        ref.read(feedbackServiceProvider).callNumber();
+                        notifier.callNumber(number);
+                      }
+                    : () => ref.read(feedbackServiceProvider).lightTap(),
               );
             },
           ),
@@ -641,6 +652,7 @@ class MultiplayerGameplayScreen extends ConsumerWidget {
   }
 
   Widget _buildLineClaimCard(
+    WidgetRef ref,
     MultiplayerGameState state,
     MultiplayerGameNotifier notifier,
   ) {
@@ -742,7 +754,10 @@ class MultiplayerGameplayScreen extends ConsumerWidget {
                   ),
                   onPressed: state.isClaiming
                       ? null
-                      : () => notifier.claimLine(nextLine),
+                      : () {
+                          ref.read(feedbackServiceProvider).claimLine();
+                          notifier.claimLine(nextLine);
+                        },
                   icon: const Icon(Icons.check_rounded, size: 16),
                   label: const Text('CLAIM LINE'),
                 ),

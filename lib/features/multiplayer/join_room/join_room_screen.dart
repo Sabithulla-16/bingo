@@ -13,7 +13,9 @@ import '../data/multiplayer_repository_provider.dart';
 
 /// Join Room Screen (Stitch Screen ID: `d221a3db42c344d3b8e705d9a6614e29`)
 class JoinRoomScreen extends ConsumerStatefulWidget {
-  const JoinRoomScreen({super.key});
+  final String? initialCode;
+
+  const JoinRoomScreen({super.key, this.initialCode});
 
   @override
   ConsumerState<JoinRoomScreen> createState() => _JoinRoomScreenState();
@@ -31,6 +33,9 @@ class _JoinRoomScreenState extends ConsumerState<JoinRoomScreen> {
   @override
   void initState() {
     super.initState();
+    if (widget.initialCode != null && widget.initialCode!.isNotEmpty) {
+      _codeController.text = widget.initialCode!.trim().toUpperCase();
+    }
     _codeController.addListener(() {
       final text = _codeController.text.toUpperCase();
       if (text != _codeController.text) {

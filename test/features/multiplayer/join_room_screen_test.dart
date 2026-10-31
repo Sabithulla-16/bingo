@@ -66,4 +66,43 @@ void main() {
     await tester.enterText(find.byType(TextField), room.code);
     await tester.pumpAndSettle();
   });
+
+  testWidgets('JoinRoomScreen prefills code from deep link initialCode', (
+    WidgetTester tester,
+  ) async {
+    final guestProfile = PlayerProfile(
+      id: 'guest_id',
+      displayName: 'Guest Player',
+      email: 'guest@bingo.dev',
+      avatarColorHex: '#20243A',
+      chips: 500,
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+
+    final mockAuth = MockAuthRepository(guestProfile);
+    final mockProfile = MockProfileRepository(guestProfile);
+    final repository = MultiplayerRepositoryImpl(
+      authRepository: mockAuth,
+      profileRepository: mockProfile,
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authRepositoryProvider.overrideWithValue(mockAuth),
+          profileRepositoryProvider.overrideWithValue(mockProfile),
+          currentProfileProvider.overrideWithValue(guestProfile),
+          multiplayerRepositoryProvider.overrideWithValue(repository),
+        ],
+        child: const MaterialApp(
+          home: JoinRoomScreen(initialCode: 'DEEP99'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final textField = tester.widget<TextField>(find.byType(TextField));
+    expect(textField.controller?.text, equals('DEEP99'));
+  });
 }

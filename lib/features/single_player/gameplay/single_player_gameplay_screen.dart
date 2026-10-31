@@ -7,6 +7,7 @@ import '../../../app/theme/app_radii.dart';
 import '../../../app/theme/app_typography.dart';
 import '../../../core/game_engine/bingo_engine.dart';
 import '../../../core/game_engine/winning_line.dart';
+import '../../../core/services/feedback_service.dart';
 import '../../../core/widgets/app_card.dart';
 import '../../../core/widgets/bingo_board_grid.dart';
 import '../../../core/widgets/confirmation_dialog.dart';
@@ -121,6 +122,14 @@ class _SinglePlayerGameplayScreenState
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<SinglePlayerMatchState?>(singlePlayerGameProvider, (prev, next) {
+      if (next != null &&
+          next.winner == GameWinner.player &&
+          prev?.winner != GameWinner.player) {
+        ref.read(feedbackServiceProvider).victoryBingo();
+      }
+    });
+
     final gameState = ref.watch(singlePlayerGameProvider);
 
     // If state is not initialized (e.g. direct deep link), fallback gracefully
@@ -464,7 +473,10 @@ class _SinglePlayerGameplayScreenState
                     !gameState.isComputerThinking &&
                     !gameState.isNumberCalled(number) &&
                     !hasWinner) {
+                  ref.read(feedbackServiceProvider).callNumber();
                   ref.read(singlePlayerGameProvider.notifier).callNumber(number);
+                } else {
+                  ref.read(feedbackServiceProvider).lightTap();
                 }
               },
             ),
@@ -552,6 +564,7 @@ class _SinglePlayerGameplayScreenState
                             const SizedBox(width: 8),
                             ElevatedButton.icon(
                               onPressed: () {
+                                ref.read(feedbackServiceProvider).claimLine();
                                 ref
                                     .read(singlePlayerGameProvider.notifier)
                                     .claimLine(line.id);
