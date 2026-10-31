@@ -127,10 +127,43 @@ class _SinglePlayerGameplayScreenState
   @override
   Widget build(BuildContext context) {
     ref.listen<SinglePlayerMatchState?>(singlePlayerGameProvider, (prev, next) {
-      if (next != null &&
-          next.winner == GameWinner.player &&
-          prev?.winner != GameWinner.player) {
+      if (next == null) return;
+
+      // 1. Critical BINGO Victory Trigger: Play upgraded BINGO victory sound whenever
+      // ANY participant (human player, bot, or simultaneous draw) completes all 5 lines.
+      final wasCompleted = prev != null && prev.winner != GameWinner.none;
+      final isCompleted = next.winner != GameWinner.none;
+      final anyReachedBingo =
+          next.playerClaimedLineIds.length >= 5 ||
+          next.computerClaimedLineIds.length >= 5;
+      final prevAnyReachedBingo =
+          prev != null &&
+          (prev.playerClaimedLineIds.length >= 5 ||
+              prev.computerClaimedLineIds.length >= 5);
+
+      if ((isCompleted && !wasCompleted) ||
+          (anyReachedBingo && !prevAnyReachedBingo)) {
         ref.read(feedbackServiceProvider).victoryBingo();
+      }
+
+      // 2. Line Strike Sound: Whenever player or bot successfully claims a winning line
+      final prevPlayerLines = prev?.playerClaimedLineIds.length ?? 0;
+      final nextPlayerLines = next.playerClaimedLineIds.length;
+      final prevBotLines = prev?.computerClaimedLineIds.length ?? 0;
+      final nextBotLines = next.computerClaimedLineIds.length;
+
+      if (nextPlayerLines > prevPlayerLines || nextBotLines > prevBotLines) {
+        // If not a full 5-line victory, play the line strike sound
+        if (!isCompleted && !anyReachedBingo) {
+          ref.read(feedbackServiceProvider).claimLine();
+        }
+      }
+
+      // 3. Number Call Sound: Whenever a new number is successfully called (human or bot turn)
+      final prevCalls = prev?.calledNumbers.length ?? 0;
+      final nextCalls = next.calledNumbers.length;
+      if (nextCalls > prevCalls) {
+        ref.read(feedbackServiceProvider).callNumber();
       }
     });
 
@@ -491,7 +524,6 @@ class _SinglePlayerGameplayScreenState
                     !gameState.isComputerThinking &&
                     !gameState.isNumberCalled(number) &&
                     !hasWinner) {
-                  ref.read(feedbackServiceProvider).callNumber();
                   ref
                       .read(singlePlayerGameProvider.notifier)
                       .callNumber(number);
@@ -586,7 +618,6 @@ class _SinglePlayerGameplayScreenState
                             const SizedBox(width: 8),
                             ElevatedButton.icon(
                               onPressed: () {
-                                ref.read(feedbackServiceProvider).claimLine();
                                 ref
                                     .read(singlePlayerGameProvider.notifier)
                                     .claimLine(line.id);

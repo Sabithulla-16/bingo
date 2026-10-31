@@ -25,15 +25,58 @@ class MultiplayerGameplayScreen extends ConsumerWidget {
     final state = ref.watch(multiplayerGameProvider(roomId));
     final notifier = ref.read(multiplayerGameProvider(roomId).notifier);
 
-    // Auto-navigate to result screen upon match conclusion and trigger haptics
+    // Auto-navigate to result screen upon match conclusion and trigger audio feedback
     ref.listen<MultiplayerGameState>(multiplayerGameProvider(roomId), (
       prev,
       next,
     ) {
-      if (next.hasWon && (prev == null || !prev.hasWon)) {
+      // 1. Critical BINGO Victory Trigger: Play upgraded BINGO victory sound whenever
+      // ANY multiplayer participant achieves 5 lines or the authoritative game completes.
+      final wasCompleted =
+          prev?.game?.status == MultiplayerGameStatus.completed;
+      final isCompleted = next.game?.status == MultiplayerGameStatus.completed;
+      final hadWinner = prev?.game?.winnerUserId != null;
+      final hasWinner = next.game?.winnerUserId != null;
+      final anyPlayerWon =
+          next.players.any((p) => p.linesClaimed >= 5 || p.isWinner) ||
+          next.hasWon;
+      final prevAnyPlayerWon =
+          (prev?.players.any((p) => p.linesClaimed >= 5 || p.isWinner) ??
+              false) ||
+          (prev?.hasWon ?? false);
+
+      if ((isCompleted && !wasCompleted) ||
+          (hasWinner && !hadWinner) ||
+          (anyPlayerWon && !prevAnyPlayerWon)) {
         ref.read(feedbackServiceProvider).victoryBingo();
       }
-      if (next.game?.status == MultiplayerGameStatus.completed) {
+
+      // 2. Line Strike Sound: Whenever local player or another participant claims a line
+      final prevMyLines = prev?.claimedLines.length ?? 0;
+      final nextMyLines = next.claimedLines.length;
+      final prevOtherLines =
+          prev?.players
+              .where((p) => p.userId != next.currentUserId)
+              .fold<int>(0, (sum, p) => sum + p.linesClaimed) ??
+          0;
+      final nextOtherLines = next.players
+          .where((p) => p.userId != next.currentUserId)
+          .fold<int>(0, (sum, p) => sum + p.linesClaimed);
+
+      if ((nextMyLines > prevMyLines || nextOtherLines > prevOtherLines) &&
+          !isCompleted &&
+          !anyPlayerWon) {
+        ref.read(feedbackServiceProvider).claimLine();
+      }
+
+      // 3. Number Call Sound: Whenever a new number is successfully called (by any player)
+      final prevCalls = prev?.game?.calledNumbers.length ?? 0;
+      final nextCalls = next.game?.calledNumbers.length ?? 0;
+      if (nextCalls > prevCalls) {
+        ref.read(feedbackServiceProvider).callNumber();
+      }
+
+      if (isCompleted && !wasCompleted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -656,7 +699,6 @@ class MultiplayerGameplayScreen extends ConsumerWidget {
                 isInteractive: canCall,
                 onTap: canCall
                     ? () {
-                        ref.read(feedbackServiceProvider).callNumber();
                         notifier.callNumber(number);
                       }
                     : () => ref.read(feedbackServiceProvider).lightTap(),
@@ -775,7 +817,6 @@ class MultiplayerGameplayScreen extends ConsumerWidget {
                   onPressed: state.isClaiming
                       ? null
                       : () {
-                          ref.read(feedbackServiceProvider).claimLine();
                           notifier.claimLine(nextLine);
                         },
                   icon: const Icon(Icons.check_rounded, size: 16),
