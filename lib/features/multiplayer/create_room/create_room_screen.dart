@@ -182,7 +182,9 @@ class _CreateRoomScreenState extends ConsumerState<CreateRoomScreen> {
                   children: [
                     PlayerAvatar(
                       backgroundColor: Color(
-                        int.parse(profile.avatarColorHex.replaceFirst('#', '0xFF')),
+                        int.parse(
+                          profile.avatarColorHex.replaceFirst('#', '0xFF'),
+                        ),
                       ),
                       displayName: profile.displayName,
                       size: 38,
@@ -230,9 +232,7 @@ class _CreateRoomScreenState extends ConsumerState<CreateRoomScreen> {
         const SizedBox(width: 6),
         Text(
           label,
-          style: AppTypography.labelSm.copyWith(
-            color: AppColors.textSecondary,
-          ),
+          style: AppTypography.labelSm.copyWith(color: AppColors.textSecondary),
         ),
       ],
     );
@@ -254,7 +254,9 @@ class _CreateRoomScreenState extends ConsumerState<CreateRoomScreen> {
               : AppColors.surfaceContainerLow,
           borderRadius: AppRadii.roundedFull,
           border: Border.all(
-            color: isSelected ? AppColors.primaryNavy : AppColors.structuralBorder,
+            color: isSelected
+                ? AppColors.primaryNavy
+                : AppColors.structuralBorder,
             width: isSelected ? 1.5 : 1.0,
           ),
         ),

@@ -19,7 +19,8 @@ class RoomStatisticsScreen extends ConsumerStatefulWidget {
   const RoomStatisticsScreen({super.key, required this.roomId});
 
   @override
-  ConsumerState<RoomStatisticsScreen> createState() => _RoomStatisticsScreenState();
+  ConsumerState<RoomStatisticsScreen> createState() =>
+      _RoomStatisticsScreenState();
 }
 
 class _RoomStatisticsScreenState extends ConsumerState<RoomStatisticsScreen> {
@@ -28,7 +29,9 @@ class _RoomStatisticsScreenState extends ConsumerState<RoomStatisticsScreen> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(roomStatisticsNotifierProvider(widget.roomId));
-    final notifier = ref.read(roomStatisticsNotifierProvider(widget.roomId).notifier);
+    final notifier = ref.read(
+      roomStatisticsNotifierProvider(widget.roomId).notifier,
+    );
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -42,7 +45,10 @@ class _RoomStatisticsScreenState extends ConsumerState<RoomStatisticsScreen> {
                   _buildHeader(context, state),
                   Expanded(
                     child: SingleChildScrollView(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
@@ -50,7 +56,8 @@ class _RoomStatisticsScreenState extends ConsumerState<RoomStatisticsScreen> {
                           const SizedBox(height: 12),
                           _buildSegmentedTabBar(state, notifier),
                           const SizedBox(height: 14),
-                          if (state.selectedTab == RoomStatisticsTab.leaderboard) ...[
+                          if (state.selectedTab ==
+                              RoomStatisticsTab.leaderboard) ...[
                             _buildBentoQuickStats(state),
                             const SizedBox(height: 14),
                             _buildStandingsSection(state),
@@ -87,7 +94,10 @@ class _RoomStatisticsScreenState extends ConsumerState<RoomStatisticsScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               IconButton(
-                icon: const Icon(Icons.arrow_back_rounded, color: AppColors.primaryNavy),
+                icon: const Icon(
+                  Icons.arrow_back_rounded,
+                  color: AppColors.primaryNavy,
+                ),
                 onPressed: () => Navigator.of(context).canPop()
                     ? Navigator.of(context).pop()
                     : context.go(AppRoutes.home),
@@ -102,7 +112,11 @@ class _RoomStatisticsScreenState extends ConsumerState<RoomStatisticsScreen> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.lock_rounded, size: 12, color: AppColors.primaryCoral),
+                    const Icon(
+                      Icons.lock_rounded,
+                      size: 12,
+                      color: AppColors.primaryCoral,
+                    ),
                     const SizedBox(width: 4),
                     Text(
                       'PRIVATE ROOM',
@@ -167,7 +181,11 @@ class _RoomStatisticsScreenState extends ConsumerState<RoomStatisticsScreen> {
               color: AppColors.primaryNavy,
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.person_rounded, size: 18, color: Colors.white),
+            child: const Icon(
+              Icons.person_rounded,
+              size: 18,
+              color: Colors.white,
+            ),
           ),
         ],
       ),
@@ -198,7 +216,11 @@ class _RoomStatisticsScreenState extends ConsumerState<RoomStatisticsScreen> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.lock_rounded, size: 11, color: AppColors.primaryCoral),
+                  const Icon(
+                    Icons.lock_rounded,
+                    size: 11,
+                    color: AppColors.primaryCoral,
+                  ),
                   const SizedBox(width: 4),
                   Text(
                     'ROOM: ${state.roomCode}',
@@ -252,12 +274,16 @@ class _RoomStatisticsScreenState extends ConsumerState<RoomStatisticsScreen> {
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 decoration: BoxDecoration(
-                  color: isLeaderboard ? AppColors.primaryCoral : Colors.transparent,
+                  color: isLeaderboard
+                      ? AppColors.primaryCoral
+                      : Colors.transparent,
                   borderRadius: AppRadii.roundedFull,
                   boxShadow: isLeaderboard
                       ? [
                           BoxShadow(
-                            color: AppColors.primaryCoral.withValues(alpha: 0.3),
+                            color: AppColors.primaryCoral.withValues(
+                              alpha: 0.3,
+                            ),
                             blurRadius: 4,
                             offset: const Offset(0, 1),
                           ),
@@ -269,7 +295,9 @@ class _RoomStatisticsScreenState extends ConsumerState<RoomStatisticsScreen> {
                   'LEADERBOARD',
                   style: AppTypography.labelSm.copyWith(
                     fontWeight: FontWeight.w800,
-                    color: isLeaderboard ? Colors.white : AppColors.primaryNavy.withValues(alpha: 0.7),
+                    color: isLeaderboard
+                        ? Colors.white
+                        : AppColors.primaryNavy.withValues(alpha: 0.7),
                     fontSize: 11,
                   ),
                 ),
@@ -282,12 +310,16 @@ class _RoomStatisticsScreenState extends ConsumerState<RoomStatisticsScreen> {
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 decoration: BoxDecoration(
-                  color: !isLeaderboard ? AppColors.primaryCoral : Colors.transparent,
+                  color: !isLeaderboard
+                      ? AppColors.primaryCoral
+                      : Colors.transparent,
                   borderRadius: AppRadii.roundedFull,
                   boxShadow: !isLeaderboard
                       ? [
                           BoxShadow(
-                            color: AppColors.primaryCoral.withValues(alpha: 0.3),
+                            color: AppColors.primaryCoral.withValues(
+                              alpha: 0.3,
+                            ),
                             blurRadius: 4,
                             offset: const Offset(0, 1),
                           ),
@@ -299,7 +331,9 @@ class _RoomStatisticsScreenState extends ConsumerState<RoomStatisticsScreen> {
                   'MATCH HISTORY',
                   style: AppTypography.labelSm.copyWith(
                     fontWeight: FontWeight.w800,
-                    color: !isLeaderboard ? Colors.white : AppColors.primaryNavy.withValues(alpha: 0.7),
+                    color: !isLeaderboard
+                        ? Colors.white
+                        : AppColors.primaryNavy.withValues(alpha: 0.7),
                     fontSize: 11,
                   ),
                 ),
@@ -476,7 +510,9 @@ class _RoomStatisticsScreenState extends ConsumerState<RoomStatisticsScreen> {
           ],
         ),
         const SizedBox(height: 10),
-        ...state.standings.map((standing) => _buildDetailedStandingCard(standing)),
+        ...state.standings.map(
+          (standing) => _buildDetailedStandingCard(standing),
+        ),
         const SizedBox(height: 8),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -505,7 +541,10 @@ class _RoomStatisticsScreenState extends ConsumerState<RoomStatisticsScreen> {
             : AppColors.surface,
         borderRadius: AppRadii.roundedLg,
         border: standing.isYou
-            ? Border.all(color: AppColors.primaryCoral.withValues(alpha: 0.4), width: 1.5)
+            ? Border.all(
+                color: AppColors.primaryCoral.withValues(alpha: 0.4),
+                width: 1.5,
+              )
             : null,
         boxShadow: [
           BoxShadow(
@@ -531,7 +570,9 @@ class _RoomStatisticsScreenState extends ConsumerState<RoomStatisticsScreen> {
                           displayName: standing.displayName,
                           size: 44,
                           backgroundColor: Color(
-                            int.parse(standing.avatarColorHex.replaceFirst('#', '0xFF')),
+                            int.parse(
+                              standing.avatarColorHex.replaceFirst('#', '0xFF'),
+                            ),
                           ),
                         ),
                         Positioned(
@@ -589,7 +630,10 @@ class _RoomStatisticsScreenState extends ConsumerState<RoomStatisticsScreen> {
                               if (standing.isYou) ...[
                                 const SizedBox(width: 4),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 4,
+                                    vertical: 1,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: AppColors.primaryCoral,
                                     borderRadius: AppRadii.roundedSm,
@@ -606,7 +650,10 @@ class _RoomStatisticsScreenState extends ConsumerState<RoomStatisticsScreen> {
                               if (standing.isHost) ...[
                                 const SizedBox(width: 4),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 4,
+                                    vertical: 1,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: AppColors.primaryNavy,
                                     borderRadius: AppRadii.roundedSm,
@@ -627,7 +674,10 @@ class _RoomStatisticsScreenState extends ConsumerState<RoomStatisticsScreen> {
                             Row(
                               children: [
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 1,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: const Color(0xFFFFDF9B),
                                     borderRadius: AppRadii.roundedFull,
@@ -653,7 +703,9 @@ class _RoomStatisticsScreenState extends ConsumerState<RoomStatisticsScreen> {
                             ),
                           ] else ...[
                             Text(
-                              standing.rank == 2 ? 'Tied 2nd Place *' : 'Rank #${standing.rank}',
+                              standing.rank == 2
+                                  ? 'Tied 2nd Place *'
+                                  : 'Rank #${standing.rank}',
                               style: AppTypography.labelSm.copyWith(
                                 fontSize: 9,
                                 color: AppColors.textSecondary,
@@ -673,7 +725,9 @@ class _RoomStatisticsScreenState extends ConsumerState<RoomStatisticsScreen> {
                     '${standing.winRate.toStringAsFixed(0)}%',
                     style: AppTypography.headlineSm.copyWith(
                       fontWeight: FontWeight.w900,
-                      color: isRank1 ? AppColors.primaryCoral : AppColors.primaryNavy,
+                      color: isRank1
+                          ? AppColors.primaryCoral
+                          : AppColors.primaryNavy,
                     ),
                   ),
                   Text(
@@ -744,7 +798,10 @@ class _RoomStatisticsScreenState extends ConsumerState<RoomStatisticsScreen> {
                     children: standing.wonRounds.map((r) {
                       return Container(
                         margin: const EdgeInsets.only(left: 4),
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
                         decoration: BoxDecoration(
                           color: isRank1
                               ? const Color(0xFFFFDF9B)
@@ -875,7 +932,10 @@ class _RoomStatisticsScreenState extends ConsumerState<RoomStatisticsScreen> {
                         ),
                         const SizedBox(width: 8),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
                             color: const Color(0xFFFFDF9B),
                             borderRadius: AppRadii.roundedFull,
@@ -902,7 +962,9 @@ class _RoomStatisticsScreenState extends ConsumerState<RoomStatisticsScreen> {
                   ],
                 ),
                 Icon(
-                  isExpanded ? Icons.expand_less_rounded : Icons.expand_more_rounded,
+                  isExpanded
+                      ? Icons.expand_less_rounded
+                      : Icons.expand_more_rounded,
                   color: AppColors.primaryNavy,
                 ),
               ],
@@ -943,11 +1005,26 @@ class _RoomStatisticsScreenState extends ConsumerState<RoomStatisticsScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('PARTICIPATING PLAYERS', style: AppTypography.labelSm.copyWith(fontSize: 8, color: AppColors.textSecondary)),
-                      Text('LINES COMPLETED', style: AppTypography.labelSm.copyWith(fontSize: 8, color: AppColors.textSecondary)),
+                      Text(
+                        'PARTICIPATING PLAYERS',
+                        style: AppTypography.labelSm.copyWith(
+                          fontSize: 8,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                      Text(
+                        'LINES COMPLETED',
+                        style: AppTypography.labelSm.copyWith(
+                          fontSize: 8,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
                     ],
                   ),
-                  const Divider(color: AppColors.surfaceContainerHigh, height: 10),
+                  const Divider(
+                    color: AppColors.surfaceContainerHigh,
+                    height: 10,
+                  ),
                   ...record.playerOutcomes.map((p) {
                     return Padding(
                       padding: const EdgeInsets.symmetric(vertical: 3),
@@ -960,7 +1037,9 @@ class _RoomStatisticsScreenState extends ConsumerState<RoomStatisticsScreen> {
                                 displayName: p.displayName,
                                 size: 20,
                                 backgroundColor: Color(
-                                  int.parse(p.avatarColorHex.replaceFirst('#', '0xFF')),
+                                  int.parse(
+                                    p.avatarColorHex.replaceFirst('#', '0xFF'),
+                                  ),
                                 ),
                               ),
                               const SizedBox(width: 6),
@@ -975,7 +1054,10 @@ class _RoomStatisticsScreenState extends ConsumerState<RoomStatisticsScreen> {
                             ],
                           ),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
                               color: p.isWinner
                                   ? const Color(0xFFFFDF9B)
@@ -1003,7 +1085,11 @@ class _RoomStatisticsScreenState extends ConsumerState<RoomStatisticsScreen> {
             const SizedBox(height: 6),
             Row(
               children: [
-                const Icon(Icons.lock_rounded, size: 11, color: AppColors.textSecondary),
+                const Icon(
+                  Icons.lock_rounded,
+                  size: 11,
+                  color: AppColors.textSecondary,
+                ),
                 const SizedBox(width: 4),
                 Expanded(
                   child: Text(

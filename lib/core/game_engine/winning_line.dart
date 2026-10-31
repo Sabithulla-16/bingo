@@ -14,7 +14,10 @@ class WinningLine {
     required this.type,
     required this.name,
     required this.coordinates,
-  }) : assert(coordinates.length == 5, 'A winning line must have exactly 5 cells');
+  }) : assert(
+         coordinates.length == 5,
+         'A winning line must have exactly 5 cells',
+       );
 
   /// Human-readable label for line awards (e.g. 'Row 1', 'Main Diagonal')
   String get description => name;

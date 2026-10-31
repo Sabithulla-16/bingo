@@ -88,10 +88,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                 children: const [
                   SplashAnimatedBingoBoard(size: 248),
                   SizedBox(height: 28),
-                  BingoLogo(
-                    fontSize: 42,
-                    showTagline: true,
-                  ),
+                  BingoLogo(fontSize: 42, showTagline: true),
                 ],
               ),
               // Footer Loading State

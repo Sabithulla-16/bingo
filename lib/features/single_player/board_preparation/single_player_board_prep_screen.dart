@@ -30,7 +30,8 @@ class _SinglePlayerBoardPrepScreenState
   void _shuffle() {
     setState(() {
       _selectedCellIndex = null;
-      ref.read(preparedBoardProvider.notifier).state = BingoBoard.quickShuffle();
+      ref.read(preparedBoardProvider.notifier).state =
+          BingoBoard.quickShuffle();
     });
   }
 
@@ -54,7 +55,10 @@ class _SinglePlayerBoardPrepScreenState
         _selectedCellIndex = null; // Deselect
       } else {
         // Swap numbers between the two selected cells
-        final updated = currentBoard.swapNumbers(_selectedCellIndex!, tappedIndex);
+        final updated = currentBoard.swapNumbers(
+          _selectedCellIndex!,
+          tappedIndex,
+        );
         ref.read(preparedBoardProvider.notifier).state = updated;
         _selectedCellIndex = null;
       }
@@ -97,7 +101,9 @@ class _SinglePlayerBoardPrepScreenState
 
     final gameId = 'sp_${DateTime.now().millisecondsSinceEpoch}';
 
-    ref.read(singlePlayerGameProvider.notifier).initMatch(
+    ref
+        .read(singlePlayerGameProvider.notifier)
+        .initMatch(
           gameId: gameId,
           difficulty: difficulty,
           playerBoard: currentBoard,

@@ -17,27 +17,33 @@ void main() {
       authRepo = AuthRepositoryImpl(null, profileRepo);
     });
 
-    test('signs in as guest and produces valid PlayerProfile with default chips', () async {
-      final profile = await authRepo.signInAsGuest(displayName: 'TestValtry');
+    test(
+      'signs in as guest and produces valid PlayerProfile with default chips',
+      () async {
+        final profile = await authRepo.signInAsGuest(displayName: 'TestValtry');
 
-      expect(profile.id.startsWith('guest_'), isTrue);
-      expect(profile.displayName, equals('TestValtry'));
-      expect(profile.chips, equals(500));
-      expect(profile.avatarId, equals('avatar_coral'));
-      expect(profile.avatarColorHex, equals('#FC695C'));
-    });
+        expect(profile.id.startsWith('guest_'), isTrue);
+        expect(profile.displayName, equals('TestValtry'));
+        expect(profile.chips, equals(500));
+        expect(profile.avatarId, equals('avatar_coral'));
+        expect(profile.avatarColorHex, equals('#FC695C'));
+      },
+    );
 
-    test('signUpWithEmail creates and returns authenticated profile in offline mode', () async {
-      final profile = await authRepo.signUpWithEmail(
-        email: 'player@bingo.app',
-        password: 'password123',
-        displayName: 'StrikeMaster',
-      );
+    test(
+      'signUpWithEmail creates and returns authenticated profile in offline mode',
+      () async {
+        final profile = await authRepo.signUpWithEmail(
+          email: 'player@bingo.app',
+          password: 'password123',
+          displayName: 'StrikeMaster',
+        );
 
-      expect(profile.displayName, equals('StrikeMaster'));
-      expect(profile.email, equals('player@bingo.app'));
-      expect(profile.chips, equals(500));
-    });
+        expect(profile.displayName, equals('StrikeMaster'));
+        expect(profile.email, equals('player@bingo.app'));
+        expect(profile.chips, equals(500));
+      },
+    );
 
     test('signInWithEmail restores user profile', () async {
       final profile = await authRepo.signInWithEmail(
@@ -57,17 +63,17 @@ void main() {
       expect(restored!.displayName, equals('PersistentGuest'));
     });
 
-    test('signOut clears active guest session and emits Unauthenticated', () async {
-      await authRepo.signInAsGuest(displayName: 'GuestUser');
-      
-      expectLater(
-        authRepo.authStateChanges,
-        emits(isA<Unauthenticated>()),
-      );
+    test(
+      'signOut clears active guest session and emits Unauthenticated',
+      () async {
+        await authRepo.signInAsGuest(displayName: 'GuestUser');
 
-      await authRepo.signOut();
-      final restored = await authRepo.restoreSession();
-      expect(restored, isNull);
-    });
+        expectLater(authRepo.authStateChanges, emits(isA<Unauthenticated>()));
+
+        await authRepo.signOut();
+        final restored = await authRepo.restoreSession();
+        expect(restored, isNull);
+      },
+    );
   });
 }

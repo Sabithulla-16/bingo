@@ -102,7 +102,8 @@ class PlayerCareerStats {
       draws: (json['draws'] as num?)?.toInt() ?? 0,
       currentStreak: (json['current_streak'] as num?)?.toInt() ?? 0,
       bestStreak: (json['best_streak'] as num?)?.toInt() ?? 0,
-      highestLinesClaimed: (json['highest_lines_claimed'] as num?)?.toInt() ?? 0,
+      highestLinesClaimed:
+          (json['highest_lines_claimed'] as num?)?.toInt() ?? 0,
       averageCallsPerMatch:
           (json['average_calls_per_match'] as num?)?.toDouble() ?? 0.0,
       recentMatches: matchesJson

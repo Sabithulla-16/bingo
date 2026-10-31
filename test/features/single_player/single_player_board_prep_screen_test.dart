@@ -12,47 +12,48 @@ void main() {
       child: Consumer(
         builder: (context, ref, child) {
           onRef?.call(ref);
-          return const MaterialApp(
-            home: SinglePlayerBoardPrepScreen(),
-          );
+          return const MaterialApp(home: SinglePlayerBoardPrepScreen());
         },
       ),
     );
   }
 
-  testWidgets('SinglePlayerBoardPrepScreen renders 5x5 grid, quick shuffle, and status', (
-    WidgetTester tester,
-  ) async {
-    tester.view.physicalSize = const Size(800, 1600);
-    tester.view.devicePixelRatio = 1.0;
-    addTearDown(() => tester.view.resetPhysicalSize());
+  testWidgets(
+    'SinglePlayerBoardPrepScreen renders 5x5 grid, quick shuffle, and status',
+    (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(800, 1600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
 
-    WidgetRef? capturedRef;
+      WidgetRef? capturedRef;
 
-    await tester.pumpWidget(createBoardPrepScreen((ref) {
-      capturedRef = ref;
-    }));
-    await tester.pumpAndSettle();
+      await tester.pumpWidget(
+        createBoardPrepScreen((ref) {
+          capturedRef = ref;
+        }),
+      );
+      await tester.pumpAndSettle();
 
-    expect(find.text('Set Up Your Board'), findsOneWidget);
-    expect(find.text('BOARD READY • 25/25 NUMBERS'), findsOneWidget);
-    expect(find.text('QUICK SHUFFLE'), findsOneWidget);
-    expect(find.text('CLEAR BOARD'), findsOneWidget);
-    expect(find.text('CONFIRM & START GAME'), findsOneWidget);
+      expect(find.text('Set Up Your Board'), findsOneWidget);
+      expect(find.text('BOARD READY • 25/25 NUMBERS'), findsOneWidget);
+      expect(find.text('QUICK SHUFFLE'), findsOneWidget);
+      expect(find.text('CLEAR BOARD'), findsOneWidget);
+      expect(find.text('CONFIRM & START GAME'), findsOneWidget);
 
-    // Initial board is valid
-    final initialNumbers = capturedRef!.read(preparedBoardProvider).numbers;
-    expect(initialNumbers.length, equals(25));
-    expect(initialNumbers.toSet().length, equals(25));
+      // Initial board is valid
+      final initialNumbers = capturedRef!.read(preparedBoardProvider).numbers;
+      expect(initialNumbers.length, equals(25));
+      expect(initialNumbers.toSet().length, equals(25));
 
-    // Tap Quick Shuffle
-    await tester.tap(find.text('QUICK SHUFFLE'));
-    await tester.pumpAndSettle();
+      // Tap Quick Shuffle
+      await tester.tap(find.text('QUICK SHUFFLE'));
+      await tester.pumpAndSettle();
 
-    final shuffledNumbers = capturedRef!.read(preparedBoardProvider).numbers;
-    expect(shuffledNumbers.length, equals(25));
-    expect(shuffledNumbers.toSet().length, equals(25));
-  });
+      final shuffledNumbers = capturedRef!.read(preparedBoardProvider).numbers;
+      expect(shuffledNumbers.length, equals(25));
+      expect(shuffledNumbers.toSet().length, equals(25));
+    },
+  );
 
   testWidgets('Clear board shows unassigned numbers palette', (
     WidgetTester tester,
@@ -69,7 +70,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('25 NUMBERS UNASSIGNED'), findsOneWidget);
-    expect(find.textContaining('TAP TO PLACE REMAINING NUMBERS'), findsOneWidget);
+    expect(
+      find.textContaining('TAP TO PLACE REMAINING NUMBERS'),
+      findsOneWidget,
+    );
   });
 }
 

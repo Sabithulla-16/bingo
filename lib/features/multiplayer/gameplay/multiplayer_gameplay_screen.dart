@@ -18,10 +18,7 @@ import '../presentation/multiplayer_game_notifier.dart';
 class MultiplayerGameplayScreen extends ConsumerWidget {
   final String roomId;
 
-  const MultiplayerGameplayScreen({
-    super.key,
-    required this.roomId,
-  });
+  const MultiplayerGameplayScreen({super.key, required this.roomId});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -29,30 +26,30 @@ class MultiplayerGameplayScreen extends ConsumerWidget {
     final notifier = ref.read(multiplayerGameProvider(roomId).notifier);
 
     // Auto-navigate to result screen upon match conclusion and trigger haptics
-    ref.listen<MultiplayerGameState>(
-      multiplayerGameProvider(roomId),
-      (prev, next) {
-        if (next.hasWon && (prev == null || !prev.hasWon)) {
-          ref.read(feedbackServiceProvider).victoryBingo();
-        }
-        if (next.game?.status == MultiplayerGameStatus.completed) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                next.hasWon
-                    ? 'BINGO! VICTORY ACHIEVED!'
-                    : 'Match Ended! Check Final Leaderboard.',
-                style: AppTypography.labelLg.copyWith(color: Colors.white),
-              ),
-              backgroundColor: next.hasWon
-                  ? AppColors.primaryCoral
-                  : AppColors.primaryNavy,
-              duration: const Duration(seconds: 4),
+    ref.listen<MultiplayerGameState>(multiplayerGameProvider(roomId), (
+      prev,
+      next,
+    ) {
+      if (next.hasWon && (prev == null || !prev.hasWon)) {
+        ref.read(feedbackServiceProvider).victoryBingo();
+      }
+      if (next.game?.status == MultiplayerGameStatus.completed) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              next.hasWon
+                  ? 'BINGO! VICTORY ACHIEVED!'
+                  : 'Match Ended! Check Final Leaderboard.',
+              style: AppTypography.labelLg.copyWith(color: Colors.white),
             ),
-          );
-        }
-      },
-    );
+            backgroundColor: next.hasWon
+                ? AppColors.primaryCoral
+                : AppColors.primaryNavy,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+    });
 
     final roomName = state.room?.name ?? 'Bingo Room';
     final roomCode = state.room?.code ?? '......';
@@ -179,11 +176,18 @@ class MultiplayerGameplayScreen extends ConsumerWidget {
         Row(
           children: [
             IconButton(
-              icon: const Icon(Icons.bar_chart_rounded, color: AppColors.primaryNavy),
-              onPressed: () => context.push(AppRoutes.roomStatisticsPath(roomId)),
+              icon: const Icon(
+                Icons.bar_chart_rounded,
+                color: AppColors.primaryNavy,
+              ),
+              onPressed: () =>
+                  context.push(AppRoutes.roomStatisticsPath(roomId)),
             ),
             IconButton(
-              icon: const Icon(Icons.close_rounded, color: AppColors.primaryNavy),
+              icon: const Icon(
+                Icons.close_rounded,
+                color: AppColors.primaryNavy,
+              ),
               onPressed: () => _confirmExit(context),
             ),
           ],
@@ -327,7 +331,11 @@ class MultiplayerGameplayScreen extends ConsumerWidget {
             ),
             Row(
               children: [
-                const Icon(Icons.lock_rounded, size: 12, color: AppColors.textSecondary),
+                const Icon(
+                  Icons.lock_rounded,
+                  size: 12,
+                  color: AppColors.textSecondary,
+                ),
                 const SizedBox(width: 4),
                 Text(
                   'Private Boards',
@@ -414,7 +422,10 @@ class MultiplayerGameplayScreen extends ConsumerWidget {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text('Lines', style: AppTypography.labelSm.copyWith(fontSize: 10)),
+                        Text(
+                          'Lines',
+                          style: AppTypography.labelSm.copyWith(fontSize: 10),
+                        ),
                         Text(
                           '${player.linesClaimed}/5',
                           style: AppTypography.labelSm.copyWith(
@@ -479,11 +490,7 @@ class MultiplayerGameplayScreen extends ConsumerWidget {
         color: AppColors.primaryNavy,
         borderRadius: AppRadii.roundedLg,
         boxShadow: [
-          BoxShadow(
-            color: Colors.black12,
-            blurRadius: 4,
-            offset: Offset(0, 2),
-          ),
+          BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2)),
         ],
       ),
       child: Row(
@@ -576,7 +583,10 @@ class MultiplayerGameplayScreen extends ConsumerWidget {
                   ),
                   const SizedBox(width: 6),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 4,
+                      vertical: 1,
+                    ),
                     decoration: const BoxDecoration(
                       color: AppColors.surfaceContainerHigh,
                       borderRadius: AppRadii.roundedFull,
@@ -600,7 +610,10 @@ class MultiplayerGameplayScreen extends ConsumerWidget {
                     ),
                   ),
                   const SizedBox(width: 3),
-                  Text('Ready', style: AppTypography.labelSm.copyWith(fontSize: 10)),
+                  Text(
+                    'Ready',
+                    style: AppTypography.labelSm.copyWith(fontSize: 10),
+                  ),
                   const SizedBox(width: 6),
                   Container(
                     width: 6,
@@ -611,7 +624,10 @@ class MultiplayerGameplayScreen extends ConsumerWidget {
                     ),
                   ),
                   const SizedBox(width: 3),
-                  Text('Claimed', style: AppTypography.labelSm.copyWith(fontSize: 10)),
+                  Text(
+                    'Claimed',
+                    style: AppTypography.labelSm.copyWith(fontSize: 10),
+                  ),
                 ],
               ),
             ],
@@ -631,7 +647,8 @@ class MultiplayerGameplayScreen extends ConsumerWidget {
               final coord = BoardCoordinate.fromIndex(index);
               final number = state.userBoard.getNumberAtCoord(coord);
               final cellState = state.cellStateFor(number, coord);
-              final canCall = state.isMyTurn && cellState == BingoCellState.available;
+              final canCall =
+                  state.isMyTurn && cellState == BingoCellState.available;
 
               return BingoCell(
                 number: number,
@@ -687,7 +704,10 @@ class MultiplayerGameplayScreen extends ConsumerWidget {
                   ),
                   const SizedBox(width: 6),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
                     decoration: const BoxDecoration(
                       color: AppColors.softYellow,
                       borderRadius: AppRadii.roundedFull,
@@ -802,7 +822,10 @@ class MultiplayerGameplayScreen extends ConsumerWidget {
                   ),
                   const SizedBox(width: 8),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
                     decoration: const BoxDecoration(
                       color: AppColors.lightLavender,
                       borderRadius: AppRadii.roundedFull,

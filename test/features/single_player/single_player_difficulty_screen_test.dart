@@ -13,51 +13,61 @@ void main() {
       child: Consumer(
         builder: (context, ref, child) {
           onRef?.call(ref);
-          return const MaterialApp(
-            home: SinglePlayerDifficultyScreen(),
-          );
+          return const MaterialApp(home: SinglePlayerDifficultyScreen());
         },
       ),
     );
   }
 
-  testWidgets('SinglePlayerDifficultyScreen renders Easy, Medium, Hard and changes selection', (
-    WidgetTester tester,
-  ) async {
-    tester.view.physicalSize = const Size(800, 1400);
-    tester.view.devicePixelRatio = 1.0;
-    addTearDown(() => tester.view.resetPhysicalSize());
+  testWidgets(
+    'SinglePlayerDifficultyScreen renders Easy, Medium, Hard and changes selection',
+    (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(800, 1400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
 
-    WidgetRef? capturedRef;
+      WidgetRef? capturedRef;
 
-    await tester.pumpWidget(createDifficultyScreen((ref) {
-      capturedRef = ref;
-    }));
-    await tester.pumpAndSettle();
+      await tester.pumpWidget(
+        createDifficultyScreen((ref) {
+          capturedRef = ref;
+        }),
+      );
+      await tester.pumpAndSettle();
 
-    expect(find.text('Select Difficulty'), findsOneWidget);
-    expect(find.text('Choose your challenge'), findsOneWidget);
-    expect(find.text('Easy'), findsOneWidget);
-    expect(find.text('Medium'), findsOneWidget);
-    expect(find.text('Hard'), findsOneWidget);
-    expect(find.text('BINGO BOT'), findsOneWidget);
-    expect(find.text('CONTINUE TO BOARD PREP'), findsOneWidget);
+      expect(find.text('Select Difficulty'), findsOneWidget);
+      expect(find.text('Choose your challenge'), findsOneWidget);
+      expect(find.text('Easy'), findsOneWidget);
+      expect(find.text('Medium'), findsOneWidget);
+      expect(find.text('Hard'), findsOneWidget);
+      expect(find.text('BINGO BOT'), findsOneWidget);
+      expect(find.text('CONTINUE TO BOARD PREP'), findsOneWidget);
 
-    // Initial default is Medium
-    expect(capturedRef!.read(selectedDifficultyProvider), equals(AiDifficulty.medium));
+      // Initial default is Medium
+      expect(
+        capturedRef!.read(selectedDifficultyProvider),
+        equals(AiDifficulty.medium),
+      );
 
-    // Tap Hard
-    await tester.tap(find.text('Hard'));
-    await tester.pumpAndSettle();
+      // Tap Hard
+      await tester.tap(find.text('Hard'));
+      await tester.pumpAndSettle();
 
-    expect(capturedRef!.read(selectedDifficultyProvider), equals(AiDifficulty.hard));
+      expect(
+        capturedRef!.read(selectedDifficultyProvider),
+        equals(AiDifficulty.hard),
+      );
 
-    // Tap Easy
-    await tester.tap(find.text('Easy'));
-    await tester.pumpAndSettle();
+      // Tap Easy
+      await tester.tap(find.text('Easy'));
+      await tester.pumpAndSettle();
 
-    expect(capturedRef!.read(selectedDifficultyProvider), equals(AiDifficulty.easy));
-  });
+      expect(
+        capturedRef!.read(selectedDifficultyProvider),
+        equals(AiDifficulty.easy),
+      );
+    },
+  );
 }
 
 typedef WidgetRefCallback = void Function(WidgetRef ref);

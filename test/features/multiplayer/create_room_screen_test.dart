@@ -43,9 +43,7 @@ void main() {
           currentProfileProvider.overrideWithValue(hostProfile),
           multiplayerRepositoryProvider.overrideWithValue(repository),
         ],
-        child: const MaterialApp(
-          home: CreateRoomScreen(),
-        ),
+        child: const MaterialApp(home: CreateRoomScreen()),
       ),
     );
     await tester.pumpAndSettle();

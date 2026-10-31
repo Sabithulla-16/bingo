@@ -31,33 +31,39 @@ void main() {
       }
     });
 
-    test('Hard AI prioritizes completing a 4-marked line over arbitrary cells', () {
-      // Row 0 has 1, 2, 3, 4 marked (only 5 is missing)
-      final called = {1, 2, 3, 4, 11, 16, 21};
+    test(
+      'Hard AI prioritizes completing a 4-marked line over arbitrary cells',
+      () {
+        // Row 0 has 1, 2, 3, 4 marked (only 5 is missing)
+        final called = {1, 2, 3, 4, 11, 16, 21};
 
-      final pick = AiDecisionEngine.selectNextCall(
-        board: board,
-        calledNumbers: called,
-        difficulty: AiDifficulty.hard,
-      );
+        final pick = AiDecisionEngine.selectNextCall(
+          board: board,
+          calledNumbers: called,
+          difficulty: AiDifficulty.hard,
+        );
 
-      // Hard AI must pick 5 because it immediately completes Row 0!
-      expect(pick, equals(5));
-    });
+        // Hard AI must pick 5 because it immediately completes Row 0!
+        expect(pick, equals(5));
+      },
+    );
 
-    test('Hard AI prioritizes center cell (13) when multiple diagonal/row/col lines are open', () {
-      // Center cell 13 intersects 4 lines (Row 2, Col 2, Diag Main, Diag Anti)
-      final called = <int>{};
+    test(
+      'Hard AI prioritizes center cell (13) when multiple diagonal/row/col lines are open',
+      () {
+        // Center cell 13 intersects 4 lines (Row 2, Col 2, Diag Main, Diag Anti)
+        final called = <int>{};
 
-      final pick = AiDecisionEngine.selectNextCall(
-        board: board,
-        calledNumbers: called,
-        difficulty: AiDifficulty.hard,
-      );
+        final pick = AiDecisionEngine.selectNextCall(
+          board: board,
+          calledNumbers: called,
+          difficulty: AiDifficulty.hard,
+        );
 
-      // Center cell 13 has the highest intersection density on an open board
-      expect(pick, equals(13));
-    });
+        // Center cell 13 has the highest intersection density on an open board
+        expect(pick, equals(13));
+      },
+    );
 
     test('throws StateError when all numbers are already called', () {
       final all25 = List<int>.generate(25, (i) => i + 1).toSet();

@@ -79,14 +79,16 @@ class AppTheme {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: AppRadii.roundedLg,
-          borderSide: const BorderSide(color: AppColors.primaryNavy, width: 1.5),
+          borderSide: const BorderSide(
+            color: AppColors.primaryNavy,
+            width: 1.5,
+          ),
         ),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        hintStyle: GoogleFonts.outfit(
-          fontSize: 14,
-          color: AppColors.textMuted,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
         ),
+        hintStyle: GoogleFonts.outfit(fontSize: 14, color: AppColors.textMuted),
       ),
     );
   }

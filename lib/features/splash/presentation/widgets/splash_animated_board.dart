@@ -16,10 +16,7 @@ import '../../../../app/theme/app_typography.dart';
 class SplashAnimatedBingoBoard extends StatefulWidget {
   final double size;
 
-  const SplashAnimatedBingoBoard({
-    super.key,
-    this.size = 256.0,
-  });
+  const SplashAnimatedBingoBoard({super.key, this.size = 256.0});
 
   @override
   State<SplashAnimatedBingoBoard> createState() =>
@@ -68,10 +65,7 @@ class _SplashAnimatedBingoBoardState extends State<SplashAnimatedBingoBoard>
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: AppRadii.roundedXl,
-        border: Border.all(
-          color: AppColors.structuralBorder,
-          width: 1.5,
-        ),
+        border: Border.all(color: AppColors.structuralBorder, width: 1.5),
         boxShadow: const [
           BoxShadow(
             color: Color(0x1420243A),
@@ -177,7 +171,7 @@ class _SplashAnimatedBingoBoardState extends State<SplashAnimatedBingoBoard>
                       color: AppColors.primaryCoral.withAlpha(60),
                       blurRadius: 3,
                       offset: const Offset(0, 1),
-                    )
+                    ),
                   ]
                 : null,
           ),
@@ -193,10 +187,7 @@ class _DiagonalStrikePainter extends CustomPainter {
   final double progress;
   final double sparkleScale;
 
-  _DiagonalStrikePainter({
-    required this.progress,
-    required this.sparkleScale,
-  });
+  _DiagonalStrikePainter({required this.progress, required this.sparkleScale});
 
   @override
   void paint(Canvas canvas, Size size) {

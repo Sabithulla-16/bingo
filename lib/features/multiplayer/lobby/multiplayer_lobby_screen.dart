@@ -62,7 +62,10 @@ class MultiplayerLobbyScreen extends ConsumerWidget {
     final lobbyState = ref.watch(multiplayerLobbyProvider(roomId));
 
     // Listen for room status transitions (e.g. host starts game -> 'preparing')
-    ref.listen<MultiplayerLobbyState>(multiplayerLobbyProvider(roomId), (prev, next) {
+    ref.listen<MultiplayerLobbyState>(multiplayerLobbyProvider(roomId), (
+      prev,
+      next,
+    ) {
       if (next.room != null && next.room!.status == RoomStatus.preparing) {
         context.pushReplacement(AppRoutes.multiplayerBoardPrepPath(roomId));
       }
@@ -70,9 +73,7 @@ class MultiplayerLobbyScreen extends ConsumerWidget {
 
     if (lobbyState.isLoading) {
       return const ResponsiveScaffold(
-        body: Center(
-          child: AppLoadingIndicator(),
-        ),
+        body: Center(child: AppLoadingIndicator()),
       );
     }
 
@@ -190,21 +191,48 @@ class MultiplayerLobbyScreen extends ConsumerWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.timer_outlined, size: 14, color: AppColors.textSecondary),
+                  const Icon(
+                    Icons.timer_outlined,
+                    size: 14,
+                    color: AppColors.textSecondary,
+                  ),
                   const SizedBox(width: 4),
-                  Text('${room.prepTimeSeconds}s Prep', style: AppTypography.labelSm),
+                  Text(
+                    '${room.prepTimeSeconds}s Prep',
+                    style: AppTypography.labelSm,
+                  ),
                   const SizedBox(width: 12),
-                  const Text('•', style: TextStyle(color: AppColors.textTertiary)),
+                  const Text(
+                    '•',
+                    style: TextStyle(color: AppColors.textTertiary),
+                  ),
                   const SizedBox(width: 12),
-                  const Icon(Icons.hourglass_top_rounded, size: 14, color: AppColors.textSecondary),
+                  const Icon(
+                    Icons.hourglass_top_rounded,
+                    size: 14,
+                    color: AppColors.textSecondary,
+                  ),
                   const SizedBox(width: 4),
-                  Text('${room.turnTimeSeconds}s Turn', style: AppTypography.labelSm),
+                  Text(
+                    '${room.turnTimeSeconds}s Turn',
+                    style: AppTypography.labelSm,
+                  ),
                   const SizedBox(width: 12),
-                  const Text('•', style: TextStyle(color: AppColors.textTertiary)),
+                  const Text(
+                    '•',
+                    style: TextStyle(color: AppColors.textTertiary),
+                  ),
                   const SizedBox(width: 12),
-                  const Icon(Icons.groups_rounded, size: 14, color: AppColors.textSecondary),
+                  const Icon(
+                    Icons.groups_rounded,
+                    size: 14,
+                    color: AppColors.textSecondary,
+                  ),
                   const SizedBox(width: 4),
-                  Text('${players.length}/$maxPlayers Players', style: AppTypography.labelSm),
+                  Text(
+                    '${players.length}/$maxPlayers Players',
+                    style: AppTypography.labelSm,
+                  ),
                 ],
               ),
             ),
@@ -224,7 +252,8 @@ class MultiplayerLobbyScreen extends ConsumerWidget {
                 ),
                 StatusBadge(
                   label: '$readyCount/$maxPlayers READY',
-                  backgroundColor: readyCount >= 2 && readyCount == players.length
+                  backgroundColor:
+                      readyCount >= 2 && readyCount == players.length
                       ? const Color(0xFFDCFCE7)
                       : const Color(0xFFFEF3C7),
                   textColor: readyCount >= 2 && readyCount == players.length
@@ -263,8 +292,8 @@ class MultiplayerLobbyScreen extends ConsumerWidget {
                 icon: Icons.play_arrow_rounded,
                 onPressed: lobbyState.canStartGame
                     ? () => ref
-                        .read(multiplayerLobbyProvider(roomId).notifier)
-                        .startGame()
+                          .read(multiplayerLobbyProvider(roomId).notifier)
+                          .startGame()
                     : null,
               ),
               const SizedBox(height: 8),
@@ -282,7 +311,9 @@ class MultiplayerLobbyScreen extends ConsumerWidget {
               ),
             ] else ...[
               SecondaryButton(
-                label: lobbyState.isCurrentUserReady ? 'Cancel Ready' : 'Ready Up',
+                label: lobbyState.isCurrentUserReady
+                    ? 'Cancel Ready'
+                    : 'Ready Up',
                 icon: lobbyState.isCurrentUserReady
                     ? Icons.close_rounded
                     : Icons.check_rounded,
@@ -406,7 +437,10 @@ class MultiplayerLobbyScreen extends ConsumerWidget {
                     if (player.isHost) ...[
                       const SizedBox(width: 6),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 1,
+                        ),
                         decoration: BoxDecoration(
                           color: AppColors.softYellow,
                           borderRadius: AppRadii.roundedFull,
@@ -414,7 +448,11 @@ class MultiplayerLobbyScreen extends ConsumerWidget {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.star_rounded, size: 10, color: AppColors.primaryNavy),
+                            const Icon(
+                              Icons.star_rounded,
+                              size: 10,
+                              color: AppColors.primaryNavy,
+                            ),
                             const SizedBox(width: 2),
                             Text(
                               'HOST',
@@ -455,15 +493,21 @@ class MultiplayerLobbyScreen extends ConsumerWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
-                  player.isReady ? Icons.check_circle_rounded : Icons.radio_button_unchecked,
+                  player.isReady
+                      ? Icons.check_circle_rounded
+                      : Icons.radio_button_unchecked,
                   size: 14,
-                  color: player.isReady ? AppColors.readyGreen : AppColors.textTertiary,
+                  color: player.isReady
+                      ? AppColors.readyGreen
+                      : AppColors.textTertiary,
                 ),
                 const SizedBox(width: 4),
                 Text(
                   player.isReady ? 'READY' : 'WAITING',
                   style: AppTypography.labelSm.copyWith(
-                    color: player.isReady ? AppColors.readyGreen : AppColors.textTertiary,
+                    color: player.isReady
+                        ? AppColors.readyGreen
+                        : AppColors.textTertiary,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -475,7 +519,11 @@ class MultiplayerLobbyScreen extends ConsumerWidget {
           if (isHostUser && !player.isHost) ...[
             const SizedBox(width: 4),
             IconButton(
-              icon: const Icon(Icons.close_rounded, size: 18, color: AppColors.errorRed),
+              icon: const Icon(
+                Icons.close_rounded,
+                size: 18,
+                color: AppColors.errorRed,
+              ),
               tooltip: 'Kick player',
               onPressed: () {
                 ref

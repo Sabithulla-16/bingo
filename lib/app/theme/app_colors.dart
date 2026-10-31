@@ -39,5 +39,7 @@ class AppColors {
   // Elevation & Border Strokes
   static const Color structuralBorder = Color(0x1420243A); // 8% navy stroke
   static const Color cardShadowColor = Color(0x1F20243A); // 12% navy offset
-  static const Color scrimOverlayColor = Color(0x6620243A); // 40% primary navy scrim
+  static const Color scrimOverlayColor = Color(
+    0x6620243A,
+  ); // 40% primary navy scrim
 }

@@ -18,10 +18,7 @@ import '../presentation/multiplayer_board_prep_notifier.dart';
 class MultiplayerBoardPrepScreen extends ConsumerStatefulWidget {
   final String roomId;
 
-  const MultiplayerBoardPrepScreen({
-    super.key,
-    required this.roomId,
-  });
+  const MultiplayerBoardPrepScreen({super.key, required this.roomId});
 
   @override
   ConsumerState<MultiplayerBoardPrepScreen> createState() =>
@@ -40,8 +37,9 @@ class _MultiplayerBoardPrepScreenState
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(multiplayerBoardPrepProvider(widget.roomId));
-    final notifier =
-        ref.read(multiplayerBoardPrepProvider(widget.roomId).notifier);
+    final notifier = ref.read(
+      multiplayerBoardPrepProvider(widget.roomId).notifier,
+    );
 
     // Auto-navigate to game when server transitions match to in_progress
     ref.listen<MultiplayerBoardPrepState>(
@@ -187,7 +185,10 @@ class _MultiplayerBoardPrepScreenState
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         IconButton(
-          icon: const Icon(Icons.arrow_back_rounded, color: AppColors.primaryNavy),
+          icon: const Icon(
+            Icons.arrow_back_rounded,
+            color: AppColors.primaryNavy,
+          ),
           onPressed: () => _confirmLeaveRoom(context),
         ),
         Column(
@@ -241,7 +242,11 @@ class _MultiplayerBoardPrepScreenState
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.lock_rounded, size: 14, color: AppColors.primaryNavy),
+              const Icon(
+                Icons.lock_rounded,
+                size: 14,
+                color: AppColors.primaryNavy,
+              ),
               const SizedBox(width: 4),
               Text('Private', style: AppTypography.labelSm),
             ],
@@ -278,7 +283,11 @@ class _MultiplayerBoardPrepScreenState
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.tag_rounded, size: 12, color: AppColors.textSecondary),
+                  const Icon(
+                    Icons.tag_rounded,
+                    size: 12,
+                    color: AppColors.textSecondary,
+                  ),
                   const SizedBox(width: 4),
                   Text(
                     'ROOM: $roomCode',
@@ -303,9 +312,7 @@ class _MultiplayerBoardPrepScreenState
         const SizedBox(height: 2),
         Text(
           'Choose where your numbers go before the match begins.',
-          style: AppTypography.bodyMd.copyWith(
-            color: AppColors.textSecondary,
-          ),
+          style: AppTypography.bodyMd.copyWith(color: AppColors.textSecondary),
         ),
       ],
     );
@@ -580,8 +587,11 @@ class _MultiplayerBoardPrepScreenState
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.visibility_off_rounded,
-                  size: 14, color: AppColors.textSecondary),
+              const Icon(
+                Icons.visibility_off_rounded,
+                size: 14,
+                color: AppColors.textSecondary,
+              ),
               const SizedBox(width: 5),
               Flexible(
                 child: Text(
@@ -617,8 +627,11 @@ class _MultiplayerBoardPrepScreenState
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.swap_horiz_rounded,
-                    size: 16, color: AppColors.primaryNavy),
+                const Icon(
+                  Icons.swap_horiz_rounded,
+                  size: 16,
+                  color: AppColors.primaryNavy,
+                ),
                 const SizedBox(width: 4),
                 Flexible(
                   child: Text(
@@ -638,7 +651,11 @@ class _MultiplayerBoardPrepScreenState
         Flexible(
           child: TextButton.icon(
             onPressed: state.isConfirmed ? null : notifier.quickShuffle,
-            icon: const Icon(Icons.casino_rounded, size: 16, color: AppColors.primaryNavy),
+            icon: const Icon(
+              Icons.casino_rounded,
+              size: 16,
+              color: AppColors.primaryNavy,
+            ),
             label: Text(
               'SHUFFLE BOARD',
               style: AppTypography.labelMd.copyWith(
@@ -671,7 +688,11 @@ class _MultiplayerBoardPrepScreenState
         children: [
           Row(
             children: [
-              const Icon(Icons.info_rounded, size: 16, color: Color(0xFF690005)),
+              const Icon(
+                Icons.info_rounded,
+                size: 16,
+                color: Color(0xFF690005),
+              ),
               const SizedBox(width: 8),
               Text(
                 'Tile $val selected. Tap another tile to swap.',
@@ -685,8 +706,11 @@ class _MultiplayerBoardPrepScreenState
           IconButton(
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
-            icon: const Icon(Icons.close_rounded,
-                size: 16, color: Color(0xFF690005)),
+            icon: const Icon(
+              Icons.close_rounded,
+              size: 16,
+              color: Color(0xFF690005),
+            ),
             onPressed: notifier.cancelSelection,
           ),
         ],
@@ -718,7 +742,9 @@ class _MultiplayerBoardPrepScreenState
               final isSelected = state.selectedCoordinate == coord;
 
               return InkWell(
-                onTap: state.isConfirmed ? null : () => notifier.onCellTapped(coord),
+                onTap: state.isConfirmed
+                    ? null
+                    : () => notifier.onCellTapped(coord),
                 borderRadius: AppRadii.roundedMd,
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 150),
@@ -739,7 +765,9 @@ class _MultiplayerBoardPrepScreenState
                     boxShadow: isSelected
                         ? [
                             BoxShadow(
-                              color: AppColors.primaryCoral.withValues(alpha: 0.3),
+                              color: AppColors.primaryCoral.withValues(
+                                alpha: 0.3,
+                              ),
                               blurRadius: 6,
                               offset: const Offset(0, 2),
                             ),
@@ -825,7 +853,11 @@ class _MultiplayerBoardPrepScreenState
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.lock_rounded, color: AppColors.textSecondary, size: 18),
+            const Icon(
+              Icons.lock_rounded,
+              color: AppColors.textSecondary,
+              size: 18,
+            ),
             const SizedBox(width: 8),
             Text(
               'BOARD LOCKED & CONFIRMED',

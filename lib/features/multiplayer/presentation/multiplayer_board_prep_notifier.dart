@@ -52,7 +52,8 @@ class MultiplayerBoardPrepState {
 
   int get readyCount => players.where((p) => p.isBoardConfirmed).length;
 
-  bool get allPlayersReady => players.isNotEmpty && players.every((p) => p.isBoardConfirmed);
+  bool get allPlayersReady =>
+      players.isNotEmpty && players.every((p) => p.isBoardConfirmed);
 
   MultiplayerBoardPrepState copyWith({
     Room? room,
@@ -87,18 +88,18 @@ class MultiplayerBoardPrepState {
 
 final multiplayerBoardPrepProvider = StateNotifierProvider.autoDispose
     .family<MultiplayerBoardPrepNotifier, MultiplayerBoardPrepState, String>((
-  ref,
-  roomId,
-) {
-  final repo = ref.watch(multiplayerRepositoryProvider);
-  final authRepo = ref.watch(authRepositoryProvider);
+      ref,
+      roomId,
+    ) {
+      final repo = ref.watch(multiplayerRepositoryProvider);
+      final authRepo = ref.watch(authRepositoryProvider);
 
-  return MultiplayerBoardPrepNotifier(
-    roomId: roomId,
-    repository: repo,
-    authRepo: authRepo,
-  );
-});
+      return MultiplayerBoardPrepNotifier(
+        roomId: roomId,
+        repository: repo,
+        authRepo: authRepo,
+      );
+    });
 
 class MultiplayerBoardPrepNotifier
     extends StateNotifier<MultiplayerBoardPrepState> {
@@ -115,10 +116,12 @@ class MultiplayerBoardPrepNotifier
     required this.roomId,
     required this.repository,
     required this.authRepo,
-  }) : super(MultiplayerBoardPrepState(
-          board: BingoBoard.quickShuffle(),
-          isLoading: true,
-        )) {
+  }) : super(
+         MultiplayerBoardPrepState(
+           board: BingoBoard.quickShuffle(),
+           isLoading: true,
+         ),
+       ) {
     _init();
   }
 
@@ -137,11 +140,7 @@ class MultiplayerBoardPrepNotifier
 
       _totalDurationSeconds = room?.prepTimeSeconds ?? 45;
 
-      state = state.copyWith(
-        room: room,
-        game: game,
-        isLoading: false,
-      );
+      state = state.copyWith(room: room, game: game, isLoading: false);
 
       _updateCountdown();
       _countdownTimer = Timer.periodic(
@@ -156,10 +155,14 @@ class MultiplayerBoardPrepNotifier
       });
 
       // Listen to player readiness updates
-      _playersSub = repository.watchGamePlayers(game.id).listen((updatedPlayers) {
+      _playersSub = repository.watchGamePlayers(game.id).listen((
+        updatedPlayers,
+      ) {
         if (!mounted) return;
         final currentUserId = authRepo.currentUserId;
-        final userState = updatedPlayers.where((p) => p.userId == currentUserId).firstOrNull;
+        final userState = updatedPlayers
+            .where((p) => p.userId == currentUserId)
+            .firstOrNull;
         state = state.copyWith(
           players: updatedPlayers,
           isConfirmed: userState?.isBoardConfirmed ?? state.isConfirmed,
@@ -203,10 +206,7 @@ class MultiplayerBoardPrepNotifier
       state = state.copyWith(selectedCoordinate: () => null);
     } else {
       final newBoard = state.board.swapCoordinates(currentSelected, coord);
-      state = state.copyWith(
-        board: newBoard,
-        selectedCoordinate: () => null,
-      );
+      state = state.copyWith(board: newBoard, selectedCoordinate: () => null);
     }
   }
 

@@ -55,7 +55,8 @@ class SinglePlayerDifficultyScreen extends ConsumerWidget {
               ref: ref,
               difficulty: AiDifficulty.easy,
               title: 'Easy',
-              subtitle: 'Random number selection. Great for casual practice and learning mechanics.',
+              subtitle:
+                  'Random number selection. Great for casual practice and learning mechanics.',
               badgeColor: AppColors.readyGreen,
               isSelected: selectedDifficulty == AiDifficulty.easy,
             ),
@@ -66,7 +67,8 @@ class SinglePlayerDifficultyScreen extends ConsumerWidget {
               ref: ref,
               difficulty: AiDifficulty.medium,
               title: 'Medium',
-              subtitle: 'Balanced play. Periodically targets near-complete lines with 3–4 marked numbers.',
+              subtitle:
+                  'Balanced play. Periodically targets near-complete lines with 3–4 marked numbers.',
               badgeColor: AppColors.softYellowDark,
               isSelected: selectedDifficulty == AiDifficulty.medium,
             ),
@@ -77,7 +79,8 @@ class SinglePlayerDifficultyScreen extends ConsumerWidget {
               ref: ref,
               difficulty: AiDifficulty.hard,
               title: 'Hard',
-              subtitle: 'Strategic heuristic AI. Evaluates intersection density and targets optimal lines.',
+              subtitle:
+                  'Strategic heuristic AI. Evaluates intersection density and targets optimal lines.',
               badgeColor: AppColors.primaryCoral,
               isSelected: selectedDifficulty == AiDifficulty.hard,
             ),
@@ -155,7 +158,9 @@ class SinglePlayerDifficultyScreen extends ConsumerWidget {
             ? AppColors.surface
             : AppColors.surfaceContainerLow,
         border: Border.all(
-          color: isSelected ? AppColors.primaryNavy : AppColors.structuralBorder,
+          color: isSelected
+              ? AppColors.primaryNavy
+              : AppColors.structuralBorder,
           width: isSelected ? 2.0 : 1.0,
         ),
         child: Row(
@@ -168,7 +173,9 @@ class SinglePlayerDifficultyScreen extends ConsumerWidget {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: isSelected ? AppColors.primaryNavy : AppColors.textTertiary,
+                  color: isSelected
+                      ? AppColors.primaryNavy
+                      : AppColors.textTertiary,
                   width: 2,
                 ),
                 color: isSelected ? AppColors.primaryNavy : Colors.transparent,
@@ -193,7 +200,10 @@ class SinglePlayerDifficultyScreen extends ConsumerWidget {
                       Text(title, style: AppTypography.headlineSm),
                       const SizedBox(width: 8),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 2,
+                        ),
                         decoration: BoxDecoration(
                           color: badgeColor.withAlpha(25),
                           borderRadius: AppRadii.roundedFull,

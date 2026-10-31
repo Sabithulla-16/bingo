@@ -7,9 +7,15 @@ void main() {
     test('contains exactly 12 winning lines (5 rows, 5 cols, 2 diagonals)', () {
       expect(WinningLine.allLines.length, equals(12));
 
-      final rows = WinningLine.allLines.where((l) => l.type == WinningLineType.horizontal).toList();
-      final cols = WinningLine.allLines.where((l) => l.type == WinningLineType.vertical).toList();
-      final diags = WinningLine.allLines.where((l) => l.type == WinningLineType.diagonal).toList();
+      final rows = WinningLine.allLines
+          .where((l) => l.type == WinningLineType.horizontal)
+          .toList();
+      final cols = WinningLine.allLines
+          .where((l) => l.type == WinningLineType.vertical)
+          .toList();
+      final diags = WinningLine.allLines
+          .where((l) => l.type == WinningLineType.diagonal)
+          .toList();
 
       expect(rows.length, equals(5));
       expect(cols.length, equals(5));
@@ -25,7 +31,9 @@ void main() {
 
     test('center cell (2, 2) intersects exactly 4 winning lines', () {
       const center = BoardCoordinate(2, 2);
-      final intersecting = WinningLine.allLines.where((l) => l.containsCoordinate(center)).toList();
+      final intersecting = WinningLine.allLines
+          .where((l) => l.containsCoordinate(center))
+          .toList();
 
       expect(intersecting.length, equals(4));
       final ids = intersecting.map((l) => l.id).toSet();
@@ -34,7 +42,9 @@ void main() {
 
     test('corner cell (0, 0) intersects exactly 3 winning lines', () {
       const corner = BoardCoordinate(0, 0);
-      final intersecting = WinningLine.allLines.where((l) => l.containsCoordinate(corner)).toList();
+      final intersecting = WinningLine.allLines
+          .where((l) => l.containsCoordinate(corner))
+          .toList();
 
       expect(intersecting.length, equals(3));
       final ids = intersecting.map((l) => l.id).toSet();

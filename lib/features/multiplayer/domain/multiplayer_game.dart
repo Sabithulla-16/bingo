@@ -96,7 +96,8 @@ class MultiplayerGame {
   }
 
   factory MultiplayerGame.fromJson(Map<String, dynamic> json) {
-    final called = (json['called_numbers'] as List<dynamic>?)
+    final called =
+        (json['called_numbers'] as List<dynamic>?)
             ?.map((e) => (e as num).toInt())
             .toList() ??
         [];
@@ -104,7 +105,9 @@ class MultiplayerGame {
     return MultiplayerGame(
       id: json['id'] as String,
       roomId: json['room_id'] as String,
-      status: MultiplayerGameStatus.fromString(json['status'] as String? ?? 'preparing'),
+      status: MultiplayerGameStatus.fromString(
+        json['status'] as String? ?? 'preparing',
+      ),
       prepDeadline: json['prep_deadline'] != null
           ? DateTime.parse(json['prep_deadline'] as String)
           : DateTime.now().add(const Duration(seconds: 45)),

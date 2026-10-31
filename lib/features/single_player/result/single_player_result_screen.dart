@@ -84,7 +84,9 @@ class SinglePlayerResultScreen extends ConsumerWidget {
               heroTitle,
               textAlign: TextAlign.center,
               style: AppTypography.displayHeroMobile.copyWith(
-                color: isVictory ? AppColors.primaryCoral : AppColors.primaryNavy,
+                color: isVictory
+                    ? AppColors.primaryCoral
+                    : AppColors.primaryNavy,
                 fontWeight: FontWeight.w800,
               ),
             ),

@@ -44,8 +44,7 @@ class AppRoutes {
   static String multiplayerGamePath(String roomId) => roomGamePath(roomId);
   static String roomResultPath(String roomId) =>
       '/multiplayer/room/$roomId/result';
-  static String multiplayerResultPath(String roomId) =>
-      roomResultPath(roomId);
+  static String multiplayerResultPath(String roomId) => roomResultPath(roomId);
   static String roomStatisticsPath(String roomId) =>
       '/multiplayer/room/$roomId/statistics';
 }

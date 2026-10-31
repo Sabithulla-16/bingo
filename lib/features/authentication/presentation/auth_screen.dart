@@ -225,8 +225,14 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         context.go(AppRoutes.home);
       }
     } catch (e) {
+      final msg = e.toString().replaceAll('Exception:', '').trim();
       setState(() {
-        _errorMessage = e.toString().replaceAll('Exception:', '').trim();
+        if (msg.toLowerCase().contains('email not confirmed')) {
+          _errorMessage =
+              'Email confirmation pending. Please check your inbox or tap "Play as Guest" below to enter immediately!';
+        } else {
+          _errorMessage = msg;
+        }
       });
     } finally {
       if (mounted) {
@@ -245,9 +251,9 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
 
     try {
       final name = _nameController.text.trim();
-      await ref.read(authStateProvider.notifier).signInAsGuest(
-        displayName: name.isNotEmpty ? name : 'Guest Valtry',
-      );
+      await ref
+          .read(authStateProvider.notifier)
+          .signInAsGuest(displayName: name.isNotEmpty ? name : 'Guest Valtry');
 
       final profile = ref.read(currentProfileProvider);
       if (mounted && profile != null) {
@@ -258,8 +264,14 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         context.go(AppRoutes.home);
       }
     } catch (e) {
+      final msg = e.toString().replaceAll('Exception:', '').trim();
       setState(() {
-        _errorMessage = e.toString().replaceAll('Exception:', '').trim();
+        if (msg.toLowerCase().contains('email not confirmed')) {
+          _errorMessage =
+              'Email confirmation pending. Please check your inbox or tap "Play as Guest" below to enter immediately!';
+        } else {
+          _errorMessage = msg;
+        }
       });
     } finally {
       if (mounted) {
@@ -659,9 +671,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                                 Checkbox(
                                   value: _rememberMe,
                                   activeColor: AppColors.primaryCoral,
-                                  onChanged: (val) => setState(
-                                    () => _rememberMe = val ?? true,
-                                  ),
+                                  onChanged: (val) =>
+                                      setState(() => _rememberMe = val ?? true),
                                 ),
                                 Text(
                                   'Remember me',

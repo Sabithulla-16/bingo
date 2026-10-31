@@ -486,7 +486,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text('BEST STREAK', style: AppTypography.labelSm),
+                                Text(
+                                  'BEST STREAK',
+                                  style: AppTypography.labelSm,
+                                ),
                                 Container(
                                   padding: const EdgeInsets.all(4),
                                   decoration: BoxDecoration(
@@ -754,10 +757,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             ),
           ),
           const SizedBox(width: 8),
-          Text(
-            value,
-            style: AppTypography.labelMd.copyWith(color: valueColor),
-          ),
+          Text(value, style: AppTypography.labelMd.copyWith(color: valueColor)),
         ],
       ),
     );
@@ -916,7 +916,10 @@ class _EditProfileDialogState extends ConsumerState<_EditProfileDialog> {
     try {
       await ref
           .read(authStateProvider.notifier)
-          .updateProfile(displayName: newName, avatarColorHex: _selectedColorHex);
+          .updateProfile(
+            displayName: newName,
+            avatarColorHex: _selectedColorHex,
+          );
       if (mounted) {
         Navigator.of(context).pop();
       }

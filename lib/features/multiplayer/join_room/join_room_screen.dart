@@ -78,7 +78,10 @@ class _JoinRoomScreenState extends ConsumerState<JoinRoomScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _errorMessage = e.toString().replaceFirst('StateError: ', '').replaceFirst('Exception: ', '');
+        _errorMessage = e
+            .toString()
+            .replaceFirst('StateError: ', '')
+            .replaceFirst('Exception: ', '');
       });
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -127,7 +130,9 @@ class _JoinRoomScreenState extends ConsumerState<JoinRoomScreen> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: List.generate(6, (index) {
-                    final char = index < currentCode.length ? currentCode[index] : '';
+                    final char = index < currentCode.length
+                        ? currentCode[index]
+                        : '';
                     final isCurrent = index == currentCode.length;
 
                     return Container(
@@ -153,7 +158,7 @@ class _JoinRoomScreenState extends ConsumerState<JoinRoomScreen> {
                                   color: Color(0x0F20243A),
                                   blurRadius: 4,
                                   offset: Offset(0, 2),
-                                )
+                                ),
                               ]
                             : null,
                       ),
@@ -195,7 +200,10 @@ class _JoinRoomScreenState extends ConsumerState<JoinRoomScreen> {
             // Error / Validation Banner
             if (_errorMessage != null)
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
                   color: AppColors.errorRed.withAlpha(20),
                   borderRadius: AppRadii.roundedMd,
@@ -203,8 +211,11 @@ class _JoinRoomScreenState extends ConsumerState<JoinRoomScreen> {
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.error_outline,
-                        color: AppColors.errorRed, size: 18),
+                    const Icon(
+                      Icons.error_outline,
+                      color: AppColors.errorRed,
+                      size: 18,
+                    ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
@@ -251,8 +262,11 @@ class _JoinRoomScreenState extends ConsumerState<JoinRoomScreen> {
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.history_rounded,
-                          size: 16, color: AppColors.textSecondary),
+                      const Icon(
+                        Icons.history_rounded,
+                        size: 16,
+                        color: AppColors.textSecondary,
+                      ),
                       const SizedBox(width: 6),
                       Text(
                         'RECENT ROOMS',

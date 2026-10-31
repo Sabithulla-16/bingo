@@ -127,7 +127,9 @@ class BingoEngine {
     );
 
     if (!isLineComplete(line)) {
-      throw StateError('Line $lineId is not yet complete and cannot be claimed.');
+      throw StateError(
+        'Line $lineId is not yet complete and cannot be claimed.',
+      );
     }
 
     return {...claimedLineIds, lineId};

@@ -63,18 +63,18 @@ class MultiplayerLobbyState {
 
 final multiplayerLobbyProvider = StateNotifierProvider.autoDispose
     .family<MultiplayerLobbyNotifier, MultiplayerLobbyState, String>((
-  ref,
-  roomId,
-) {
-  final repo = ref.watch(multiplayerRepositoryProvider);
-  final authRepo = ref.watch(authRepositoryProvider);
+      ref,
+      roomId,
+    ) {
+      final repo = ref.watch(multiplayerRepositoryProvider);
+      final authRepo = ref.watch(authRepositoryProvider);
 
-  return MultiplayerLobbyNotifier(
-    roomId: roomId,
-    repository: repo,
-    authRepo: authRepo,
-  );
-});
+      return MultiplayerLobbyNotifier(
+        roomId: roomId,
+        repository: repo,
+        authRepo: authRepo,
+      );
+    });
 
 class MultiplayerLobbyNotifier extends StateNotifier<MultiplayerLobbyState> {
   final String roomId;
@@ -121,17 +121,16 @@ class MultiplayerLobbyNotifier extends StateNotifier<MultiplayerLobbyState> {
       });
 
       // Listen to players stream
-      _playersSub = repository.watchRoomPlayers(roomId).listen((updatedPlayers) {
+      _playersSub = repository.watchRoomPlayers(roomId).listen((
+        updatedPlayers,
+      ) {
         if (mounted) {
           state = state.copyWith(players: updatedPlayers);
         }
       });
     } catch (e) {
       if (mounted) {
-        state = state.copyWith(
-          isLoading: false,
-          errorMessage: e.toString(),
-        );
+        state = state.copyWith(isLoading: false, errorMessage: e.toString());
       }
     }
   }
@@ -142,10 +141,7 @@ class MultiplayerLobbyNotifier extends StateNotifier<MultiplayerLobbyState> {
 
     try {
       final nextReady = !current.isReady;
-      await repository.toggleReady(
-        roomId: roomId,
-        isReady: nextReady,
-      );
+      await repository.toggleReady(roomId: roomId, isReady: nextReady);
     } catch (e) {
       state = state.copyWith(errorMessage: e.toString());
     }
@@ -155,10 +151,7 @@ class MultiplayerLobbyNotifier extends StateNotifier<MultiplayerLobbyState> {
     if (!state.isHost) return;
 
     try {
-      await repository.kickPlayer(
-        roomId: roomId,
-        userId: userId,
-      );
+      await repository.kickPlayer(roomId: roomId, userId: userId);
     } catch (e) {
       state = state.copyWith(errorMessage: e.toString());
     }

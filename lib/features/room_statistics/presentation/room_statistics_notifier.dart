@@ -64,9 +64,9 @@ class RoomStatisticsNotifier extends StateNotifier<RoomStatisticsState> {
     required String roomId,
     required MultiplayerRepository multiplayerRepository,
     required AuthRepository authRepository,
-  })  : _multiplayerRepository = multiplayerRepository,
-        _authRepository = authRepository,
-        super(RoomStatisticsState(roomId: roomId)) {
+  }) : _multiplayerRepository = multiplayerRepository,
+       _authRepository = authRepository,
+       super(RoomStatisticsState(roomId: roomId)) {
     loadStatistics();
   }
 
@@ -74,8 +74,12 @@ class RoomStatisticsNotifier extends StateNotifier<RoomStatisticsState> {
     try {
       final currentUid = _authRepository.currentUserId ?? '';
       final room = await _multiplayerRepository.getRoom(state.roomId);
-      final rawLeaderboard = await _multiplayerRepository.getRoomLeaderboard(state.roomId);
-      final rawHistory = await _multiplayerRepository.getRoomMatchHistory(state.roomId);
+      final rawLeaderboard = await _multiplayerRepository.getRoomLeaderboard(
+        state.roomId,
+      );
+      final rawHistory = await _multiplayerRepository.getRoomMatchHistory(
+        state.roomId,
+      );
 
       final standings = rawLeaderboard
           .map(
@@ -94,7 +98,11 @@ class RoomStatisticsNotifier extends StateNotifier<RoomStatisticsState> {
               currentStreak: m['current_streak'] as int? ?? 0,
               bestStreak: m['best_streak'] as int? ?? 0,
               lastResult: m['last_result'] as String? ?? '',
-              wonRounds: (m['won_rounds'] as List<dynamic>?)?.map((e) => e as int).toList() ?? [],
+              wonRounds:
+                  (m['won_rounds'] as List<dynamic>?)
+                      ?.map((e) => e as int)
+                      .toList() ??
+                  [],
             ),
           )
           .toList();
@@ -113,7 +121,9 @@ class RoomStatisticsNotifier extends StateNotifier<RoomStatisticsState> {
 
       if (mounted) {
         state = state.copyWith(
-          roomCode: room?.code ?? state.roomId.toUpperCase().padRight(6, '0').substring(0, 6),
+          roomCode:
+              room?.code ??
+              state.roomId.toUpperCase().padRight(6, '0').substring(0, 6),
           overview: overview,
           standings: standings,
           history: history,
@@ -122,10 +132,7 @@ class RoomStatisticsNotifier extends StateNotifier<RoomStatisticsState> {
       }
     } catch (e) {
       if (mounted) {
-        state = state.copyWith(
-          isLoading: false,
-          errorMessage: e.toString(),
-        );
+        state = state.copyWith(isLoading: false, errorMessage: e.toString());
       }
     }
   }
@@ -137,11 +144,11 @@ class RoomStatisticsNotifier extends StateNotifier<RoomStatisticsState> {
 
 final roomStatisticsNotifierProvider = StateNotifierProvider.autoDispose
     .family<RoomStatisticsNotifier, RoomStatisticsState, String>((ref, roomId) {
-  final multiRepo = ref.watch(multiplayerRepositoryProvider);
-  final authRepo = ref.watch(authRepositoryProvider);
-  return RoomStatisticsNotifier(
-    roomId: roomId,
-    multiplayerRepository: multiRepo,
-    authRepository: authRepo,
-  );
-});
+      final multiRepo = ref.watch(multiplayerRepositoryProvider);
+      final authRepo = ref.watch(authRepositoryProvider);
+      return RoomStatisticsNotifier(
+        roomId: roomId,
+        multiplayerRepository: multiRepo,
+        authRepository: authRepo,
+      );
+    });

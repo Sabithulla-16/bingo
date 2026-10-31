@@ -34,9 +34,7 @@ void main() {
           authRepositoryProvider.overrideWithValue(mockAuth),
           currentProfileProvider.overrideWithValue(profile),
         ],
-        child: const MaterialApp(
-          home: MultiplayerMenuScreen(),
-        ),
+        child: const MaterialApp(home: MultiplayerMenuScreen()),
       ),
     );
     await tester.pumpAndSettle();

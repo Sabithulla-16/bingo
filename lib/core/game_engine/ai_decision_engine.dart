@@ -60,11 +60,15 @@ class AiDecisionEngine {
     final moderateCandidates = <int>{};
 
     for (final line in WinningLine.allLines) {
-      final lineNumbers = line.coordinates.map((c) => board.getNumberAt(c.row, c.col)).toList();
+      final lineNumbers = line.coordinates
+          .map((c) => board.getNumberAt(c.row, c.col))
+          .toList();
       final lineCalled = lineNumbers.where(calledNumbers.contains).length;
 
       if (lineCalled == 4) {
-        final remaining = lineNumbers.firstWhere((n) => !calledNumbers.contains(n));
+        final remaining = lineNumbers.firstWhere(
+          (n) => !calledNumbers.contains(n),
+        );
         nearCompleteCandidates.add(remaining);
       } else if (lineCalled == 3) {
         final remaining = lineNumbers.where((n) => !calledNumbers.contains(n));
@@ -101,11 +105,15 @@ class AiDecisionEngine {
       double score = 0.0;
 
       for (final line in WinningLine.allLines) {
-        final lineNumbers = line.coordinates.map((c) => board.getNumberAt(c.row, c.col)).toList();
+        final lineNumbers = line.coordinates
+            .map((c) => board.getNumberAt(c.row, c.col))
+            .toList();
 
         // Only evaluate lines that contain this candidate number
         if (lineNumbers.contains(candidate)) {
-          final currentlyCalled = lineNumbers.where(calledNumbers.contains).length;
+          final currentlyCalled = lineNumbers
+              .where(calledNumbers.contains)
+              .length;
 
           // Exponential weighting based on how close this line is to completion
           switch (currentlyCalled) {

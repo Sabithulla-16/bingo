@@ -91,14 +91,15 @@ class BingoCell extends StatelessWidget {
               color: backgroundColor,
               borderRadius: AppRadii.roundedCell,
               border: border,
-              boxShadow: state == BingoCellState.claimed ||
+              boxShadow:
+                  state == BingoCellState.claimed ||
                       state == BingoCellState.completedUnclaimed
                   ? const [
                       BoxShadow(
                         color: AppColors.cardShadowColor,
                         offset: Offset(0, 2),
                         blurRadius: 0,
-                      )
+                      ),
                     ]
                   : null,
             ),
@@ -109,9 +110,7 @@ class BingoCell extends StatelessWidget {
                 ?overlay,
                 Text(
                   numberFormatted,
-                  style: AppTypography.bingoNumber.copyWith(
-                    color: textColor,
-                  ),
+                  style: AppTypography.bingoNumber.copyWith(color: textColor),
                 ),
               ],
             ),

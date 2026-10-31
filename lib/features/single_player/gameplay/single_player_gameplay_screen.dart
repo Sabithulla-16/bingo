@@ -49,7 +49,10 @@ class _SinglePlayerGameplayScreenState
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('All Called Numbers', style: AppTypography.headlineSm),
+                      Text(
+                        'All Called Numbers',
+                        style: AppTypography.headlineSm,
+                      ),
                       Text(
                         '${calledNumbers.length} of 25 numbers selected this match',
                         style: AppTypography.bodySm,
@@ -108,7 +111,8 @@ class _SinglePlayerGameplayScreenState
       context: context,
       builder: (ctx) => ConfirmationDialog(
         title: 'Leave Match?',
-        message: 'Leaving will forfeit this practice round against the computer.',
+        message:
+            'Leaving will forfeit this practice round against the computer.',
         confirmLabel: 'Leave Match',
         cancelLabel: 'Resume',
         isDestructive: true,
@@ -209,11 +213,16 @@ class _SinglePlayerGameplayScreenState
 
                 // Center Match Difficulty Pill
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.softYellow.withAlpha(40),
                     borderRadius: AppRadii.roundedFull,
-                    border: Border.all(color: AppColors.softYellowDark.withAlpha(50)),
+                    border: Border.all(
+                      color: AppColors.softYellowDark.withAlpha(50),
+                    ),
                   ),
                   child: Row(
                     children: [
@@ -299,7 +308,10 @@ class _SinglePlayerGameplayScreenState
 
                   // VS Pill
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: AppColors.surfaceContainerLow,
                       borderRadius: AppRadii.roundedFull,
@@ -358,7 +370,10 @@ class _SinglePlayerGameplayScreenState
             // Bot Line Claim Toast / Alert
             if (gameState.botActionToast != null) ...[
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
                   color: AppColors.lightLavender,
                   borderRadius: AppRadii.roundedLg,
@@ -447,7 +462,10 @@ class _SinglePlayerGameplayScreenState
             if (unclaimedLines.isNotEmpty)
               Container(
                 margin: const EdgeInsets.only(bottom: 8),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: AppColors.softYellow,
                   borderRadius: AppRadii.roundedFull,
@@ -474,7 +492,9 @@ class _SinglePlayerGameplayScreenState
                     !gameState.isNumberCalled(number) &&
                     !hasWinner) {
                   ref.read(feedbackServiceProvider).callNumber();
-                  ref.read(singlePlayerGameProvider.notifier).callNumber(number);
+                  ref
+                      .read(singlePlayerGameProvider.notifier)
+                      .callNumber(number);
                 } else {
                   ref.read(feedbackServiceProvider).lightTap();
                 }
@@ -547,10 +567,12 @@ class _SinglePlayerGameplayScreenState
                                   Text(line.name, style: AppTypography.labelMd),
                                   Text(
                                     line.coordinates
-                                        .map((c) => gameState.playerBoard
-                                            .getNumberAt(c.row, c.col)
-                                            .toString()
-                                            .padLeft(2, '0'))
+                                        .map(
+                                          (c) => gameState.playerBoard
+                                              .getNumberAt(c.row, c.col)
+                                              .toString()
+                                              .padLeft(2, '0'),
+                                        )
                                         .join(' · '),
                                     style: AppTypography.bodySm.copyWith(
                                       fontSize: 11,
@@ -649,7 +671,9 @@ class _SinglePlayerGameplayScreenState
                   if (calledNumbers.isEmpty)
                     const Padding(
                       padding: EdgeInsets.symmetric(vertical: 8.0),
-                      child: Text('No numbers called yet. Tap a number above to begin!'),
+                      child: Text(
+                        'No numbers called yet. Tap a number above to begin!',
+                      ),
                     )
                   else
                     SizedBox(
@@ -744,9 +768,7 @@ class _SinglePlayerGameplayScreenState
           child: Text(
             letter,
             style: AppTypography.labelSm.copyWith(
-              color: isClaimed
-                  ? AppColors.textLight
-                  : AppColors.textTertiary,
+              color: isClaimed ? AppColors.textLight : AppColors.textTertiary,
               fontWeight: FontWeight.w800,
             ),
           ),

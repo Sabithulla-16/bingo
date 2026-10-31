@@ -148,11 +148,13 @@ class AuthStateNotifier extends StateNotifier<AppAuthState> {
 }
 
 /// Provider for player career statistics.
-final careerStatsProvider =
-    FutureProvider.family<PlayerCareerStats, String>((ref, userId) async {
-      final profileRepo = ref.watch(profileRepositoryProvider);
-      return await profileRepo.getCareerStats(userId);
-    });
+final careerStatsProvider = FutureProvider.family<PlayerCareerStats, String>((
+  ref,
+  userId,
+) async {
+  final profileRepo = ref.watch(profileRepositoryProvider);
+  return await profileRepo.getCareerStats(userId);
+});
 
 /// Provider for managing local player preferences (sound, haptics).
 final playerPreferencesProvider =

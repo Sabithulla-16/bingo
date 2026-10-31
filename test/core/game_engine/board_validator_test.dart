@@ -18,7 +18,10 @@ void main() {
       final result = BoardValidator.validate(shortList);
 
       expect(result.isValid, isFalse);
-      expect(result.errorSummary, contains('Board must contain exactly 25 cells'));
+      expect(
+        result.errorSummary,
+        contains('Board must contain exactly 25 cells'),
+      );
     });
 
     test('detects duplicate numbers and identifies them', () {

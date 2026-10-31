@@ -5,8 +5,9 @@ import 'package:bingo/core/widgets/bingo_cell.dart';
 
 void main() {
   group('BingoBoardGrid Widget Tests', () {
-    testWidgets('renders exactly 25 BingoCells in 5x5 arrangement',
-        (tester) async {
+    testWidgets('renders exactly 25 BingoCells in 5x5 arrangement', (
+      tester,
+    ) async {
       tester.view.physicalSize = const Size(800, 1200);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
@@ -31,8 +32,9 @@ void main() {
       expect(find.text('25'), findsOneWidget);
     });
 
-    testWidgets('passes called and claimed states correctly to child cells',
-        (tester) async {
+    testWidgets('passes called and claimed states correctly to child cells', (
+      tester,
+    ) async {
       tester.view.physicalSize = const Size(800, 1200);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);

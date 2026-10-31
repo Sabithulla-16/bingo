@@ -21,32 +21,31 @@ class MockAuthRepository implements AuthRepository {
 
   @override
   Stream<AppAuthState> get authStateChanges => Stream.value(
-        currentProfile != null
-            ? Authenticated(currentProfile!)
-            : const Unauthenticated(),
-      );
+    currentProfile != null
+        ? Authenticated(currentProfile!)
+        : const Unauthenticated(),
+  );
 
   @override
   Future<PlayerProfile?> restoreSession() async => currentProfile;
 
   @override
-  Future<PlayerProfile> signInAsGuest({String? displayName}) async => currentProfile!;
+  Future<PlayerProfile> signInAsGuest({String? displayName}) async =>
+      currentProfile!;
 
   @override
   Future<PlayerProfile> signInWithEmail({
     required String email,
     required String password,
     bool rememberMe = true,
-  }) async =>
-      currentProfile!;
+  }) async => currentProfile!;
 
   @override
   Future<PlayerProfile> signUpWithEmail({
     required String email,
     required String password,
     required String displayName,
-  }) async =>
-      currentProfile!;
+  }) async => currentProfile!;
 
   @override
   Future<void> sendPasswordReset(String email) async {}
@@ -101,7 +100,8 @@ class MockProfileRepository implements ProfileRepository {
   }
 
   @override
-  Future<PlayerCareerStats> getCareerStats(String userId) async => const PlayerCareerStats();
+  Future<PlayerCareerStats> getCareerStats(String userId) async =>
+      const PlayerCareerStats();
 
   @override
   Future<PlayerPreferences> getPreferences() async => const PlayerPreferences();
@@ -134,58 +134,64 @@ void main() {
       );
     });
 
-    test('createRoom generates 6-char code, seats host at index 0 and sets status waiting', () async {
-      final room = await repository.createRoom(
-        name: 'Weekend Tournament',
-        maxPlayers: 4,
-        prepTimeSeconds: 45,
-        turnTimeSeconds: 20,
-      );
+    test(
+      'createRoom generates 6-char code, seats host at index 0 and sets status waiting',
+      () async {
+        final room = await repository.createRoom(
+          name: 'Weekend Tournament',
+          maxPlayers: 4,
+          prepTimeSeconds: 45,
+          turnTimeSeconds: 20,
+        );
 
-      expect(room.name, equals('Weekend Tournament'));
-      expect(room.code.length, equals(6));
-      expect(room.hostId, equals('host_user_1'));
-      expect(room.maxPlayers, equals(4));
-      expect(room.status, equals(RoomStatus.waiting));
+        expect(room.name, equals('Weekend Tournament'));
+        expect(room.code.length, equals(6));
+        expect(room.hostId, equals('host_user_1'));
+        expect(room.maxPlayers, equals(4));
+        expect(room.status, equals(RoomStatus.waiting));
 
-      final players = await repository.getRoomPlayers(room.id);
-      expect(players.length, equals(1));
-      expect(players.first.isHost, isTrue);
-      expect(players.first.seatIndex, equals(0));
-      expect(players.first.displayName, equals('Host Alice'));
-    });
+        final players = await repository.getRoomPlayers(room.id);
+        expect(players.length, equals(1));
+        expect(players.first.isHost, isTrue);
+        expect(players.first.seatIndex, equals(0));
+        expect(players.first.displayName, equals('Host Alice'));
+      },
+    );
 
-    test('joinRoomByCode allows player to join and takes seat index 1', () async {
-      final room = await repository.createRoom(
-        name: 'Duel',
-        maxPlayers: 2,
-        prepTimeSeconds: 30,
-        turnTimeSeconds: 15,
-      );
+    test(
+      'joinRoomByCode allows player to join and takes seat index 1',
+      () async {
+        final room = await repository.createRoom(
+          name: 'Duel',
+          maxPlayers: 2,
+          prepTimeSeconds: 30,
+          turnTimeSeconds: 15,
+        );
 
-      // Switch to Bob
-      final bobProfile = PlayerProfile(
-        id: 'guest_bob_2',
-        displayName: 'Guest Bob',
-        email: 'bob@bingo.dev',
-        avatarColorHex: '#20243A',
-        chips: 500,
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-      );
-      mockAuth.currentProfile = bobProfile;
-      mockProfile.setProfile(bobProfile);
+        // Switch to Bob
+        final bobProfile = PlayerProfile(
+          id: 'guest_bob_2',
+          displayName: 'Guest Bob',
+          email: 'bob@bingo.dev',
+          avatarColorHex: '#20243A',
+          chips: 500,
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        );
+        mockAuth.currentProfile = bobProfile;
+        mockProfile.setProfile(bobProfile);
 
-      final joinedRoom = await repository.joinRoomByCode(room.code);
-      expect(joinedRoom.id, equals(room.id));
+        final joinedRoom = await repository.joinRoomByCode(room.code);
+        expect(joinedRoom.id, equals(room.id));
 
-      final players = await repository.getRoomPlayers(room.id);
-      expect(players.length, equals(2));
-      expect(players[1].userId, equals('guest_bob_2'));
-      expect(players[1].seatIndex, equals(1));
-      expect(players[1].isHost, isFalse);
-      expect(players[1].isReady, isFalse);
-    });
+        final players = await repository.getRoomPlayers(room.id);
+        expect(players.length, equals(2));
+        expect(players[1].userId, equals('guest_bob_2'));
+        expect(players[1].seatIndex, equals(1));
+        expect(players[1].isHost, isFalse);
+        expect(players[1].isReady, isFalse);
+      },
+    );
 
     test('joinRoomByCode throws when room is full', () async {
       final room = await repository.createRoom(
@@ -228,38 +234,44 @@ void main() {
       );
     });
 
-    test('toggleReady updates readiness and startGame transitions status to preparing', () async {
-      final room = await repository.createRoom(
-        name: 'Battle Room',
-        maxPlayers: 3,
-        prepTimeSeconds: 45,
-        turnTimeSeconds: 20,
-      );
+    test(
+      'toggleReady updates readiness and startGame transitions status to preparing',
+      () async {
+        final room = await repository.createRoom(
+          name: 'Battle Room',
+          maxPlayers: 3,
+          prepTimeSeconds: 45,
+          turnTimeSeconds: 20,
+        );
 
-      // Join as player 2
-      final p2 = PlayerProfile(
-        id: 'player_2',
-        displayName: 'Player 2',
-        email: 'p2@bingo.dev',
-        avatarColorHex: '#20243A',
-        chips: 500,
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-      );
-      mockAuth.currentProfile = p2;
-      mockProfile.setProfile(p2);
-      await repository.joinRoomByCode(room.code);
+        // Join as player 2
+        final p2 = PlayerProfile(
+          id: 'player_2',
+          displayName: 'Player 2',
+          email: 'p2@bingo.dev',
+          avatarColorHex: '#20243A',
+          chips: 500,
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        );
+        mockAuth.currentProfile = p2;
+        mockProfile.setProfile(p2);
+        await repository.joinRoomByCode(room.code);
 
-      // Toggle ready to true
-      await repository.toggleReady(roomId: room.id, isReady: true);
-      var players = await repository.getRoomPlayers(room.id);
-      expect(players.firstWhere((p) => p.userId == 'player_2').isReady, isTrue);
+        // Toggle ready to true
+        await repository.toggleReady(roomId: room.id, isReady: true);
+        var players = await repository.getRoomPlayers(room.id);
+        expect(
+          players.firstWhere((p) => p.userId == 'player_2').isReady,
+          isTrue,
+        );
 
-      // Start game
-      await repository.startGame(room.id);
-      final updatedRoom = await repository.getRoom(room.id);
-      expect(updatedRoom!.status, equals(RoomStatus.preparing));
-    });
+        // Start game
+        await repository.startGame(room.id);
+        final updatedRoom = await repository.getRoom(room.id);
+        expect(updatedRoom!.status, equals(RoomStatus.preparing));
+      },
+    );
 
     test('kickPlayer removes targeted player from room seats', () async {
       final room = await repository.createRoom(

@@ -12,35 +12,32 @@ void main() {
   });
 
   Widget createAuthScreen() {
-    return const ProviderScope(
-      child: MaterialApp(
-        home: AuthScreen(),
-      ),
-    );
+    return const ProviderScope(child: MaterialApp(home: AuthScreen()));
   }
 
-  testWidgets('AuthScreen renders welcome headers, logo, and mini preview board', (
-    WidgetTester tester,
-  ) async {
-    tester.view.physicalSize = const Size(800, 1400);
-    tester.view.devicePixelRatio = 1.0;
-    addTearDown(() => tester.view.resetPhysicalSize());
+  testWidgets(
+    'AuthScreen renders welcome headers, logo, and mini preview board',
+    (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(800, 1400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
 
-    await tester.pumpWidget(createAuthScreen());
-    await tester.pumpAndSettle();
+      await tester.pumpWidget(createAuthScreen());
+      await tester.pumpAndSettle();
 
-    expect(find.text('WELCOME TO BINGO'), findsOneWidget);
-    expect(find.text("Let's get you started!"), findsOneWidget);
-    expect(find.text('Create Account'), findsWidgets);
-    expect(find.text('Sign In'), findsWidgets);
-    expect(find.text('CONTINUE AS GUEST'), findsOneWidget);
+      expect(find.text('WELCOME TO BINGO'), findsOneWidget);
+      expect(find.text("Let's get you started!"), findsOneWidget);
+      expect(find.text('Create Account'), findsWidgets);
+      expect(find.text('Sign In'), findsWidgets);
+      expect(find.text('CONTINUE AS GUEST'), findsOneWidget);
 
-    // Verify miniature board preview cells are rendered
-    expect(find.text('08'), findsOneWidget);
-    expect(find.text('03'), findsOneWidget);
-    expect(find.text('07'), findsOneWidget);
-    expect(find.text('25'), findsOneWidget);
-  });
+      // Verify miniature board preview cells are rendered
+      expect(find.text('08'), findsOneWidget);
+      expect(find.text('03'), findsOneWidget);
+      expect(find.text('07'), findsOneWidget);
+      expect(find.text('25'), findsOneWidget);
+    },
+  );
 
   testWidgets('AuthScreen toggles between Create Account and Sign In views', (
     WidgetTester tester,

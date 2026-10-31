@@ -15,6 +15,7 @@ class AuthRepositoryImpl implements AuthRepository {
   final _authStateController = StreamController<AppAuthState>.broadcast();
 
   static const String _prefGuestSessionKey = 'bingo_active_guest_session';
+  static const String _prefUserSessionKey = 'bingo_active_user_session';
   static const String _prefRememberMeKey = 'bingo_remember_me';
 
   AuthRepositoryImpl(this._client, this._profileRepository) {
@@ -23,6 +24,7 @@ class AuthRepositoryImpl implements AuthRepository {
       if (session != null) {
         final profile = await _profileRepository.getProfile(session.user.id);
         if (profile != null) {
+          await _saveActiveSession(profile.id);
           _authStateController.add(Authenticated(profile));
         } else {
           final newProfile = PlayerProfile(
@@ -38,13 +40,14 @@ class AuthRepositoryImpl implements AuthRepository {
             updatedAt: DateTime.now(),
           );
           await _profileRepository.upsertProfile(newProfile);
+          await _saveActiveSession(newProfile.id);
           _authStateController.add(Authenticated(newProfile));
         }
       } else {
-        // Only broadcast Unauthenticated if there's no active guest session
-        final guest = await _getStoredGuestSession();
-        if (guest != null) {
-          _authStateController.add(Authenticated(guest));
+        // Check if there is an active user or guest session before broadcasting Unauthenticated
+        final active = await _getStoredActiveSession();
+        if (active != null) {
+          _authStateController.add(Authenticated(active));
         } else {
           _authStateController.add(const Unauthenticated());
         }
@@ -68,7 +71,9 @@ class AuthRepositoryImpl implements AuthRepository {
     required String displayName,
   }) async {
     final cleanEmail = email.trim();
-    final cleanName = displayName.trim().isEmpty ? 'Valtry' : displayName.trim();
+    final cleanName = displayName.trim().isEmpty
+        ? 'Valtry'
+        : displayName.trim();
 
     if (_client == null) {
       // Local fallback mode when running without Supabase credentials
@@ -83,7 +88,7 @@ class AuthRepositoryImpl implements AuthRepository {
         updatedAt: DateTime.now(),
       );
       await _profileRepository.upsertProfile(profile);
-      await _clearGuestSession();
+      await _saveActiveSession(profile.id);
       _authStateController.add(Authenticated(profile));
       return profile;
     }
@@ -112,7 +117,7 @@ class AuthRepositoryImpl implements AuthRepository {
       );
 
       await _profileRepository.upsertProfile(profile);
-      await _clearGuestSession();
+      await _saveActiveSession(profile.id);
       _authStateController.add(Authenticated(profile));
       return profile;
     } on sb.AuthException catch (e) {
@@ -146,7 +151,7 @@ class AuthRepositoryImpl implements AuthRepository {
         updatedAt: DateTime.now(),
       );
       await _profileRepository.upsertProfile(profile);
-      await _clearGuestSession();
+      await _saveActiveSession(profile.id);
       _authStateController.add(Authenticated(profile));
       return profile;
     }
@@ -178,7 +183,7 @@ class AuthRepositoryImpl implements AuthRepository {
         await _profileRepository.upsertProfile(profile);
       }
 
-      await _clearGuestSession();
+      await _saveActiveSession(profile.id);
       _authStateController.add(Authenticated(profile));
       return profile;
     } on sb.AuthException catch (e) {
@@ -206,8 +211,7 @@ class AuthRepositoryImpl implements AuthRepository {
     );
 
     await _profileRepository.upsertProfile(guestProfile);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_prefGuestSessionKey, guestProfile.id);
+    await _saveActiveSession(guestProfile.id, isGuest: true);
 
     _authStateController.add(Authenticated(guestProfile));
     return guestProfile;
@@ -227,7 +231,7 @@ class AuthRepositoryImpl implements AuthRepository {
 
   @override
   Future<void> signOut() async {
-    await _clearGuestSession();
+    await _clearActiveSession();
     if (_client != null) {
       try {
         await _client.auth.signOut();
@@ -242,33 +246,52 @@ class AuthRepositoryImpl implements AuthRepository {
     if (_client != null) {
       final session = _client.auth.currentSession;
       if (session != null) {
-        return await _profileRepository.getProfile(session.user.id);
+        final profile = await _profileRepository.getProfile(session.user.id);
+        if (profile != null) {
+          await _saveActiveSession(profile.id);
+          return profile;
+        }
       }
     }
 
-    // 2. Check local guest session
-    final guest = await _getStoredGuestSession();
-    if (guest != null) {
-      return guest;
+    // 2. Check local active session (registered or guest)
+    final stored = await _getStoredActiveSession();
+    if (stored != null) {
+      return stored;
     }
 
     return null;
   }
 
-  Future<PlayerProfile?> _getStoredGuestSession() async {
+  Future<void> _saveActiveSession(String userId, {bool isGuest = false}) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final guestId = prefs.getString(_prefGuestSessionKey);
-      if (guestId != null) {
-        return await _profileRepository.getProfile(guestId);
+      await prefs.setString(_prefUserSessionKey, userId);
+      if (isGuest) {
+        await prefs.setString(_prefGuestSessionKey, userId);
+      } else {
+        await prefs.remove(_prefGuestSessionKey);
+      }
+    } catch (_) {}
+  }
+
+  Future<PlayerProfile?> _getStoredActiveSession() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userId =
+          prefs.getString(_prefUserSessionKey) ??
+          prefs.getString(_prefGuestSessionKey);
+      if (userId != null) {
+        return await _profileRepository.getProfile(userId);
       }
     } catch (_) {}
     return null;
   }
 
-  Future<void> _clearGuestSession() async {
+  Future<void> _clearActiveSession() async {
     try {
       final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_prefUserSessionKey);
       await prefs.remove(_prefGuestSessionKey);
     } catch (_) {}
   }

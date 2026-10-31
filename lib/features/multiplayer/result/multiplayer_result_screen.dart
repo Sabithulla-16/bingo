@@ -22,7 +22,9 @@ class MultiplayerResultScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(multiplayerResultNotifierProvider(roomId));
-    final notifier = ref.read(multiplayerResultNotifierProvider(roomId).notifier);
+    final notifier = ref.read(
+      multiplayerResultNotifierProvider(roomId).notifier,
+    );
 
     // Watch for host starting next round: automatically navigate to board prep
     ref.listen<MultiplayerResultState>(
@@ -46,7 +48,10 @@ class MultiplayerResultScreen extends ConsumerWidget {
                   _buildHeader(context, state),
                   Expanded(
                     child: SingleChildScrollView(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
@@ -88,7 +93,10 @@ class MultiplayerResultScreen extends ConsumerWidget {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           IconButton(
-            icon: const Icon(Icons.arrow_back_rounded, color: AppColors.primaryNavy),
+            icon: const Icon(
+              Icons.arrow_back_rounded,
+              color: AppColors.primaryNavy,
+            ),
             onPressed: () => context.go(AppRoutes.home),
             tooltip: 'Leave Match',
           ),
@@ -235,7 +243,9 @@ class MultiplayerResultScreen extends ConsumerWidget {
                 width: 80,
                 height: 80,
                 decoration: BoxDecoration(
-                  color: isYou ? const Color(0xFFFFDF9B) : const Color(0xFFFFDF9B),
+                  color: isYou
+                      ? const Color(0xFFFFDF9B)
+                      : const Color(0xFFFFDF9B),
                   shape: BoxShape.circle,
                 ),
               ),
@@ -295,7 +305,11 @@ class MultiplayerResultScreen extends ConsumerWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.stars_rounded, size: 14, color: AppColors.primaryNavy),
+                const Icon(
+                  Icons.stars_rounded,
+                  size: 14,
+                  color: AppColors.primaryNavy,
+                ),
                 const SizedBox(width: 4),
                 Text(
                   isYou
@@ -357,7 +371,10 @@ class MultiplayerResultScreen extends ConsumerWidget {
                   style: AppTypography.bodySm.copyWith(fontSize: 11),
                 ),
                 const SizedBox(width: 6),
-                const Text('•', style: TextStyle(color: AppColors.textSecondary)),
+                const Text(
+                  '•',
+                  style: TextStyle(color: AppColors.textSecondary),
+                ),
                 const SizedBox(width: 6),
                 Text(
                   '${state.playerResults.length} Players Active',
@@ -398,7 +415,11 @@ class MultiplayerResultScreen extends ConsumerWidget {
           const SizedBox(height: 8),
           Row(
             children: [
-              const Icon(Icons.lock_rounded, size: 12, color: AppColors.textSecondary),
+              const Icon(
+                Icons.lock_rounded,
+                size: 12,
+                color: AppColors.textSecondary,
+              ),
               const SizedBox(width: 4),
               Expanded(
                 child: Text(
@@ -426,7 +447,10 @@ class MultiplayerResultScreen extends ConsumerWidget {
             : AppColors.surfaceContainerLow,
         borderRadius: AppRadii.roundedMd,
         border: player.isYou
-            ? Border.all(color: AppColors.primaryCoral.withValues(alpha: 0.5), width: 1.5)
+            ? Border.all(
+                color: AppColors.primaryCoral.withValues(alpha: 0.5),
+                width: 1.5,
+              )
             : null,
       ),
       child: Column(
@@ -442,7 +466,9 @@ class MultiplayerResultScreen extends ConsumerWidget {
                       displayName: player.displayName,
                       size: 34,
                       backgroundColor: Color(
-                        int.parse(player.avatarColorHex.replaceFirst('#', '0xFF')),
+                        int.parse(
+                          player.avatarColorHex.replaceFirst('#', '0xFF'),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -466,7 +492,10 @@ class MultiplayerResultScreen extends ConsumerWidget {
                               if (player.isYou) ...[
                                 const SizedBox(width: 4),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 4,
+                                    vertical: 1,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: AppColors.primaryNavy,
                                     borderRadius: AppRadii.roundedSm,
@@ -483,7 +512,10 @@ class MultiplayerResultScreen extends ConsumerWidget {
                               if (player.isHost) ...[
                                 const SizedBox(width: 4),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 4,
+                                    vertical: 1,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: AppColors.surfaceContainerHigh,
                                     borderRadius: AppRadii.roundedSm,
@@ -559,7 +591,9 @@ class MultiplayerResultScreen extends ConsumerWidget {
                       boxShadow: isClaimed
                           ? [
                               BoxShadow(
-                                color: AppColors.primaryCoral.withValues(alpha: 0.3),
+                                color: AppColors.primaryCoral.withValues(
+                                  alpha: 0.3,
+                                ),
                                 blurRadius: 2,
                                 offset: const Offset(0, 1),
                               ),
@@ -572,7 +606,9 @@ class MultiplayerResultScreen extends ConsumerWidget {
                       style: AppTypography.labelSm.copyWith(
                         fontWeight: FontWeight.w900,
                         fontSize: 11,
-                        color: isClaimed ? Colors.white : AppColors.textSecondary,
+                        color: isClaimed
+                            ? Colors.white
+                            : AppColors.textSecondary,
                       ),
                     ),
                   );
@@ -617,12 +653,20 @@ class MultiplayerResultScreen extends ConsumerWidget {
             childAspectRatio: 2.2,
             children: [
               _buildBentoItem('ROOM', state.roomName),
-              _buildBentoItem('ROUND', 'Round ${state.roundNumber.toString().padLeft(2, '0')}'),
-              _buildBentoItem('NUMBERS CALLED', '${state.totalCalls} / 25 Calls'),
+              _buildBentoItem(
+                'ROUND',
+                'Round ${state.roundNumber.toString().padLeft(2, '0')}',
+              ),
+              _buildBentoItem(
+                'NUMBERS CALLED',
+                '${state.totalCalls} / 25 Calls',
+              ),
               _buildBentoItem(
                 'YOUR OUTCOME',
                 state.isYouWinner ? 'VICTORY' : 'DEFEAT',
-                color: state.isYouWinner ? AppColors.readyGreen : AppColors.primaryCoral,
+                color: state.isYouWinner
+                    ? AppColors.readyGreen
+                    : AppColors.primaryCoral,
               ),
             ],
           ),
@@ -665,7 +709,10 @@ class MultiplayerResultScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildLeaderboardPreviewCard(BuildContext context, MultiplayerResultState state) {
+  Widget _buildLeaderboardPreviewCard(
+    BuildContext context,
+    MultiplayerResultState state,
+  ) {
     return AppCard(
       padding: const EdgeInsets.all(14),
       child: Column(
@@ -779,12 +826,19 @@ class MultiplayerResultScreen extends ConsumerWidget {
                     ),
                     if (isFirst) ...[
                       const SizedBox(width: 4),
-                      const Icon(Icons.military_tech_rounded, size: 16, color: Color(0xFFEDC157)),
+                      const Icon(
+                        Icons.military_tech_rounded,
+                        size: 16,
+                        color: Color(0xFFEDC157),
+                      ),
                     ],
                     if (standing.isHost) ...[
                       const SizedBox(width: 4),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 4,
+                          vertical: 1,
+                        ),
                         decoration: BoxDecoration(
                           color: AppColors.primaryCoral,
                           borderRadius: AppRadii.roundedSm,
@@ -848,7 +902,10 @@ class MultiplayerResultScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildRecentMatchHistoryCard(BuildContext context, MultiplayerResultState state) {
+  Widget _buildRecentMatchHistoryCard(
+    BuildContext context,
+    MultiplayerResultState state,
+  ) {
     return AppCard(
       padding: const EdgeInsets.all(14),
       child: Column(
@@ -866,10 +923,14 @@ class MultiplayerResultScreen extends ConsumerWidget {
                 ),
               ),
               InkWell(
-                onTap: () => context.push(AppRoutes.roomStatisticsPath(state.roomId)),
+                onTap: () =>
+                    context.push(AppRoutes.roomStatisticsPath(state.roomId)),
                 borderRadius: AppRadii.roundedSm,
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 4,
+                    vertical: 2,
+                  ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -881,7 +942,11 @@ class MultiplayerResultScreen extends ConsumerWidget {
                           color: AppColors.primaryCoral,
                         ),
                       ),
-                      const Icon(Icons.chevron_right_rounded, size: 14, color: AppColors.primaryCoral),
+                      const Icon(
+                        Icons.chevron_right_rounded,
+                        size: 14,
+                        color: AppColors.primaryCoral,
+                      ),
                     ],
                   ),
                 ),
@@ -943,7 +1008,10 @@ class MultiplayerResultScreen extends ConsumerWidget {
                     ],
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
                       color: const Color(0xFFFFDF9B),
                       borderRadius: AppRadii.roundedFull,
@@ -1025,7 +1093,8 @@ class MultiplayerResultScreen extends ConsumerWidget {
           SecondaryButton(
             label: 'VIEW DETAILED ROOM STATS',
             icon: Icons.bar_chart_rounded,
-            onPressed: () => context.push(AppRoutes.roomStatisticsPath(state.roomId)),
+            onPressed: () =>
+                context.push(AppRoutes.roomStatisticsPath(state.roomId)),
           ),
           const SizedBox(height: 8),
           TextButton(

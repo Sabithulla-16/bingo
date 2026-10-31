@@ -56,125 +56,140 @@ void main() {
       expect(game.prepDeadline.isAfter(DateTime.now()), isTrue);
     });
 
-    test('submitBoard from all players advances game to inProgress and seats host as first caller', () async {
-      final room = await repository.createRoom(
-        name: 'Sync Cup',
-        maxPlayers: 2,
-        prepTimeSeconds: 45,
-        turnTimeSeconds: 20,
-      );
-
-      // Guest joins
-      mockAuth.currentProfile = guest;
-      await repository.joinRoomByCode(room.code);
-
-      final game = await repository.getGameForRoom(room.id);
-
-      // Host submits board
-      mockAuth.currentProfile = host;
-      final boardHost = BingoBoard.quickShuffle().numbers;
-      await repository.submitBoard(gameId: game.id, numbers: boardHost);
-
-      var updatedGame = await repository.getGameForRoom(room.id);
-      expect(updatedGame.status, equals(MultiplayerGameStatus.preparing)); // Still waiting for guest
-
-      // Guest submits board
-      mockAuth.currentProfile = guest;
-      final boardGuest = BingoBoard.quickShuffle().numbers;
-      await repository.submitBoard(gameId: game.id, numbers: boardGuest);
-
-      updatedGame = await repository.getGameForRoom(room.id);
-      expect(updatedGame.status, equals(MultiplayerGameStatus.inProgress));
-      expect(updatedGame.currentTurnUserId, equals(host.id));
-      expect(updatedGame.turnDeadline, isNotNull);
-    });
-
-    test('callNumber appends called number and alternates turn to next seated player', () async {
-      final room = await repository.createRoom(
-        name: 'Turn Room',
-        maxPlayers: 2,
-        prepTimeSeconds: 45,
-        turnTimeSeconds: 20,
-      );
-
-      mockAuth.currentProfile = guest;
-      await repository.joinRoomByCode(room.code);
-
-      final game = await repository.getGameForRoom(room.id);
-
-      // Both submit
-      mockAuth.currentProfile = host;
-      await repository.submitBoard(
-        gameId: game.id,
-        numbers: BingoBoard.quickShuffle().numbers,
-      );
-      mockAuth.currentProfile = guest;
-      await repository.submitBoard(
-        gameId: game.id,
-        numbers: BingoBoard.quickShuffle().numbers,
-      );
-
-      // Host turn: calls 17
-      mockAuth.currentProfile = host;
-      await repository.callNumber(gameId: game.id, number: 17);
-
-      var updatedGame = await repository.getGameForRoom(room.id);
-      expect(updatedGame.calledNumbers, contains(17));
-      expect(updatedGame.lastCalledNumber, equals(17));
-      expect(updatedGame.currentTurnUserId, equals(guest.id));
-
-      // Guest turn: calls 24
-      mockAuth.currentProfile = guest;
-      await repository.callNumber(gameId: game.id, number: 24);
-
-      updatedGame = await repository.getGameForRoom(room.id);
-      expect(updatedGame.calledNumbers, containsAll([17, 24]));
-      expect(updatedGame.currentTurnUserId, equals(host.id)); // Wrapped back to host
-    });
-
-    test('claimLine increments claimed lines count and marks winner upon 5 lines', () async {
-      final room = await repository.createRoom(
-        name: 'Winner Room',
-        maxPlayers: 2,
-        prepTimeSeconds: 45,
-        turnTimeSeconds: 20,
-      );
-
-      mockAuth.currentProfile = guest;
-      await repository.joinRoomByCode(room.code);
-      final game = await repository.getGameForRoom(room.id);
-
-      // Host submits deterministic sequential board 1..25
-      mockAuth.currentProfile = host;
-      final seqBoard = List<int>.generate(25, (i) => i + 1);
-      await repository.submitBoard(gameId: game.id, numbers: seqBoard);
-
-      mockAuth.currentProfile = guest;
-      await repository.submitBoard(gameId: game.id, numbers: seqBoard);
-
-      // Host claims 4 lines
-      mockAuth.currentProfile = host;
-      for (int i = 0; i < 4; i++) {
-        final won = await repository.claimLine(
-          gameId: game.id,
-          lineType: 'Row $i',
-          numbers: seqBoard.sublist(i * 5, (i + 1) * 5),
+    test(
+      'submitBoard from all players advances game to inProgress and seats host as first caller',
+      () async {
+        final room = await repository.createRoom(
+          name: 'Sync Cup',
+          maxPlayers: 2,
+          prepTimeSeconds: 45,
+          turnTimeSeconds: 20,
         );
-        expect(won, isFalse);
-      }
 
-      // 5th line claim triggers match victory!
-      final hasWon = await repository.claimLine(
-        gameId: game.id,
-        lineType: 'Row 4',
-        numbers: seqBoard.sublist(20, 25),
-      );
-      expect(hasWon, isTrue);
+        // Guest joins
+        mockAuth.currentProfile = guest;
+        await repository.joinRoomByCode(room.code);
 
-      final completedGame = await repository.getGameForRoom(room.id);
-      expect(completedGame.status, equals(MultiplayerGameStatus.completed));
-      expect(completedGame.winnerUserId, equals(host.id));
-    });
+        final game = await repository.getGameForRoom(room.id);
+
+        // Host submits board
+        mockAuth.currentProfile = host;
+        final boardHost = BingoBoard.quickShuffle().numbers;
+        await repository.submitBoard(gameId: game.id, numbers: boardHost);
+
+        var updatedGame = await repository.getGameForRoom(room.id);
+        expect(
+          updatedGame.status,
+          equals(MultiplayerGameStatus.preparing),
+        ); // Still waiting for guest
+
+        // Guest submits board
+        mockAuth.currentProfile = guest;
+        final boardGuest = BingoBoard.quickShuffle().numbers;
+        await repository.submitBoard(gameId: game.id, numbers: boardGuest);
+
+        updatedGame = await repository.getGameForRoom(room.id);
+        expect(updatedGame.status, equals(MultiplayerGameStatus.inProgress));
+        expect(updatedGame.currentTurnUserId, equals(host.id));
+        expect(updatedGame.turnDeadline, isNotNull);
+      },
+    );
+
+    test(
+      'callNumber appends called number and alternates turn to next seated player',
+      () async {
+        final room = await repository.createRoom(
+          name: 'Turn Room',
+          maxPlayers: 2,
+          prepTimeSeconds: 45,
+          turnTimeSeconds: 20,
+        );
+
+        mockAuth.currentProfile = guest;
+        await repository.joinRoomByCode(room.code);
+
+        final game = await repository.getGameForRoom(room.id);
+
+        // Both submit
+        mockAuth.currentProfile = host;
+        await repository.submitBoard(
+          gameId: game.id,
+          numbers: BingoBoard.quickShuffle().numbers,
+        );
+        mockAuth.currentProfile = guest;
+        await repository.submitBoard(
+          gameId: game.id,
+          numbers: BingoBoard.quickShuffle().numbers,
+        );
+
+        // Host turn: calls 17
+        mockAuth.currentProfile = host;
+        await repository.callNumber(gameId: game.id, number: 17);
+
+        var updatedGame = await repository.getGameForRoom(room.id);
+        expect(updatedGame.calledNumbers, contains(17));
+        expect(updatedGame.lastCalledNumber, equals(17));
+        expect(updatedGame.currentTurnUserId, equals(guest.id));
+
+        // Guest turn: calls 24
+        mockAuth.currentProfile = guest;
+        await repository.callNumber(gameId: game.id, number: 24);
+
+        updatedGame = await repository.getGameForRoom(room.id);
+        expect(updatedGame.calledNumbers, containsAll([17, 24]));
+        expect(
+          updatedGame.currentTurnUserId,
+          equals(host.id),
+        ); // Wrapped back to host
+      },
+    );
+
+    test(
+      'claimLine increments claimed lines count and marks winner upon 5 lines',
+      () async {
+        final room = await repository.createRoom(
+          name: 'Winner Room',
+          maxPlayers: 2,
+          prepTimeSeconds: 45,
+          turnTimeSeconds: 20,
+        );
+
+        mockAuth.currentProfile = guest;
+        await repository.joinRoomByCode(room.code);
+        final game = await repository.getGameForRoom(room.id);
+
+        // Host submits deterministic sequential board 1..25
+        mockAuth.currentProfile = host;
+        final seqBoard = List<int>.generate(25, (i) => i + 1);
+        await repository.submitBoard(gameId: game.id, numbers: seqBoard);
+
+        mockAuth.currentProfile = guest;
+        await repository.submitBoard(gameId: game.id, numbers: seqBoard);
+
+        // Host claims 4 lines
+        mockAuth.currentProfile = host;
+        for (int i = 0; i < 4; i++) {
+          final won = await repository.claimLine(
+            gameId: game.id,
+            lineType: 'Row $i',
+            numbers: seqBoard.sublist(i * 5, (i + 1) * 5),
+          );
+          expect(won, isFalse);
+        }
+
+        // 5th line claim triggers match victory!
+        final hasWon = await repository.claimLine(
+          gameId: game.id,
+          lineType: 'Row 4',
+          numbers: seqBoard.sublist(20, 25),
+        );
+        expect(hasWon, isTrue);
+
+        final completedGame = await repository.getGameForRoom(room.id);
+        expect(completedGame.status, equals(MultiplayerGameStatus.completed));
+        expect(completedGame.winnerUserId, equals(host.id));
+      },
+    );
 
     test('extendPrepTime pushes prepDeadline into the future', () async {
       final room = await repository.createRoom(

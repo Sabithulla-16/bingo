@@ -96,9 +96,9 @@ class MultiplayerResultNotifier extends StateNotifier<MultiplayerResultState> {
     required String roomId,
     required MultiplayerRepository multiplayerRepository,
     required AuthRepository authRepository,
-  })  : _multiplayerRepository = multiplayerRepository,
-        _authRepository = authRepository,
-        super(MultiplayerResultState(roomId: roomId)) {
+  }) : _multiplayerRepository = multiplayerRepository,
+       _authRepository = authRepository,
+       super(MultiplayerResultState(roomId: roomId)) {
     _init();
   }
 
@@ -107,12 +107,16 @@ class MultiplayerResultNotifier extends StateNotifier<MultiplayerResultState> {
       final currentUid = _authRepository.currentUserId ?? '';
       final game = await _multiplayerRepository.getGameForRoom(state.roomId);
       final room = await _multiplayerRepository.getRoom(state.roomId);
-      final roomPlayers = await _multiplayerRepository.getRoomPlayers(state.roomId);
+      final roomPlayers = await _multiplayerRepository.getRoomPlayers(
+        state.roomId,
+      );
       final isHost = room?.hostId == currentUid;
 
       // Watch game for status changes (e.g. host starts next round)
       _gameSub?.cancel();
-      _gameSub = _multiplayerRepository.watchGame(game.id).listen((updatedGame) {
+      _gameSub = _multiplayerRepository.watchGame(game.id).listen((
+        updatedGame,
+      ) {
         if (mounted) {
           state = state.copyWith(
             roundNumber: updatedGame.roundNumber,
@@ -127,7 +131,8 @@ class MultiplayerResultNotifier extends StateNotifier<MultiplayerResultState> {
       bool isYouWinner = false;
 
       for (final rp in roomPlayers) {
-        final isThisWinner = game.winnerId != null && game.winnerId == rp.userId;
+        final isThisWinner =
+            game.winnerId != null && game.winnerId == rp.userId;
         if (isThisWinner) {
           winnerDisplayName = rp.displayName;
           if (rp.userId == currentUid) isYouWinner = true;
@@ -158,7 +163,9 @@ class MultiplayerResultNotifier extends StateNotifier<MultiplayerResultState> {
         playerOutcomes: outcomes.map((o) => o.toJson()).toList(),
       );
 
-      final rawLeaderboard = await _multiplayerRepository.getRoomLeaderboard(state.roomId);
+      final rawLeaderboard = await _multiplayerRepository.getRoomLeaderboard(
+        state.roomId,
+      );
       final leaderboard = rawLeaderboard
           .map(
             (m) => RoomPlayerStanding(
@@ -176,12 +183,18 @@ class MultiplayerResultNotifier extends StateNotifier<MultiplayerResultState> {
               currentStreak: m['current_streak'] as int? ?? 0,
               bestStreak: m['best_streak'] as int? ?? 0,
               lastResult: m['last_result'] as String? ?? '',
-              wonRounds: (m['won_rounds'] as List<dynamic>?)?.map((e) => e as int).toList() ?? [],
+              wonRounds:
+                  (m['won_rounds'] as List<dynamic>?)
+                      ?.map((e) => e as int)
+                      .toList() ??
+                  [],
             ),
           )
           .toList();
 
-      final rawHistory = await _multiplayerRepository.getRoomMatchHistory(state.roomId);
+      final rawHistory = await _multiplayerRepository.getRoomMatchHistory(
+        state.roomId,
+      );
       final recentMatches = rawHistory
           .map((m) => RoomRoundRecord.fromJson(m, currentUserId: currentUid))
           .toList();
@@ -191,10 +204,14 @@ class MultiplayerResultNotifier extends StateNotifier<MultiplayerResultState> {
           gameId: game.id,
           roundNumber: game.roundNumber,
           roomName: room?.name ?? 'FRIDAY BINGO CLUB',
-          roomCode: room?.code ?? state.roomId.toUpperCase().padRight(6, '0').substring(0, 6),
+          roomCode:
+              room?.code ??
+              state.roomId.toUpperCase().padRight(6, '0').substring(0, 6),
           winnerId: game.winnerId,
           winnerName: winnerDisplayName,
-          totalCalls: game.calledNumbers.isNotEmpty ? game.calledNumbers.length : 18,
+          totalCalls: game.calledNumbers.isNotEmpty
+              ? game.calledNumbers.length
+              : 18,
           isYouWinner: isYouWinner,
           isHost: isHost,
           currentUserId: currentUid,
@@ -206,10 +223,7 @@ class MultiplayerResultNotifier extends StateNotifier<MultiplayerResultState> {
       }
     } catch (e) {
       if (mounted) {
-        state = state.copyWith(
-          isLoading: false,
-          errorMessage: e.toString(),
-        );
+        state = state.copyWith(isLoading: false, errorMessage: e.toString());
       }
     }
   }
@@ -241,12 +255,15 @@ class MultiplayerResultNotifier extends StateNotifier<MultiplayerResultState> {
 }
 
 final multiplayerResultNotifierProvider = StateNotifierProvider.autoDispose
-    .family<MultiplayerResultNotifier, MultiplayerResultState, String>((ref, roomId) {
-  final multiRepo = ref.watch(multiplayerRepositoryProvider);
-  final authRepo = ref.watch(authRepositoryProvider);
-  return MultiplayerResultNotifier(
-    roomId: roomId,
-    multiplayerRepository: multiRepo,
-    authRepository: authRepo,
-  );
-});
+    .family<MultiplayerResultNotifier, MultiplayerResultState, String>((
+      ref,
+      roomId,
+    ) {
+      final multiRepo = ref.watch(multiplayerRepositoryProvider);
+      final authRepo = ref.watch(authRepositoryProvider);
+      return MultiplayerResultNotifier(
+        roomId: roomId,
+        multiplayerRepository: multiRepo,
+        authRepository: authRepo,
+      );
+    });

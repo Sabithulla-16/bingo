@@ -32,7 +32,9 @@ class MultiplayerMenuScreen extends ConsumerWidget {
                 children: [
                   PlayerAvatar(
                     backgroundColor: Color(
-                      int.parse(profile.avatarColorHex.replaceFirst('#', '0xFF')),
+                      int.parse(
+                        profile.avatarColorHex.replaceFirst('#', '0xFF'),
+                      ),
                     ),
                     displayName: profile.displayName,
                     size: 32,
@@ -100,8 +102,10 @@ class MultiplayerMenuScreen extends ConsumerWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('Host Private Room',
-                                style: AppTypography.headlineSm),
+                            Text(
+                              'Host Private Room',
+                              style: AppTypography.headlineSm,
+                            ),
                             Text(
                               'Customize players (2–4), prep & turn timers',
                               style: AppTypography.bodySm,
@@ -147,8 +151,10 @@ class MultiplayerMenuScreen extends ConsumerWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('Join with Code',
-                                style: AppTypography.headlineSm),
+                            Text(
+                              'Join with Code',
+                              style: AppTypography.headlineSm,
+                            ),
                             Text(
                               'Enter an invite code from a host friend',
                               style: AppTypography.bodySm,
@@ -249,10 +255,7 @@ class MultiplayerMenuScreen extends ConsumerWidget {
         ),
         const SizedBox(width: 10),
         Expanded(
-          child: Text(
-            text,
-            style: AppTypography.bodySm.copyWith(fontSize: 12),
-          ),
+          child: Text(text, style: AppTypography.bodySm.copyWith(fontSize: 12)),
         ),
       ],
     );

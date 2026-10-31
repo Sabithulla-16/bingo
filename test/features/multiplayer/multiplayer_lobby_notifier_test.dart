@@ -53,53 +53,56 @@ void main() {
       expect(notifier.state.canStartGame, isFalse); // Only 1 player in room
     });
 
-    test('canStartGame becomes true when second player joins and readies up', () async {
-      final room = await repository.createRoom(
-        name: 'Fun Room',
-        maxPlayers: 2,
-        prepTimeSeconds: 45,
-        turnTimeSeconds: 20,
-      );
+    test(
+      'canStartGame becomes true when second player joins and readies up',
+      () async {
+        final room = await repository.createRoom(
+          name: 'Fun Room',
+          maxPlayers: 2,
+          prepTimeSeconds: 45,
+          turnTimeSeconds: 20,
+        );
 
-      // Player 2 joins
-      final p2 = PlayerProfile(
-        id: 'p2_id',
-        displayName: 'Player Two',
-        email: 'p2@bingo.dev',
-        avatarColorHex: '#20243A',
-        chips: 500,
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-      );
-      mockAuth.currentProfile = p2;
-      mockProfile.setProfile(p2);
-      await repository.joinRoomByCode(room.code);
+        // Player 2 joins
+        final p2 = PlayerProfile(
+          id: 'p2_id',
+          displayName: 'Player Two',
+          email: 'p2@bingo.dev',
+          avatarColorHex: '#20243A',
+          chips: 500,
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        );
+        mockAuth.currentProfile = p2;
+        mockProfile.setProfile(p2);
+        await repository.joinRoomByCode(room.code);
 
-      // Switch back to host notifier
-      mockAuth.currentProfile = hostProfile;
-      mockProfile.setProfile(hostProfile);
-      final notifier = MultiplayerLobbyNotifier(
-        roomId: room.id,
-        repository: repository,
-        authRepo: mockAuth,
-      );
-      addTearDown(notifier.dispose);
+        // Switch back to host notifier
+        mockAuth.currentProfile = hostProfile;
+        mockProfile.setProfile(hostProfile);
+        final notifier = MultiplayerLobbyNotifier(
+          roomId: room.id,
+          repository: repository,
+          authRepo: mockAuth,
+        );
+        addTearDown(notifier.dispose);
 
-      // Player 2 readies up
-      mockAuth.currentProfile = p2;
-      mockProfile.setProfile(p2);
-      await repository.toggleReady(roomId: room.id, isReady: true);
+        // Player 2 readies up
+        mockAuth.currentProfile = p2;
+        mockProfile.setProfile(p2);
+        await repository.toggleReady(roomId: room.id, isReady: true);
 
-      // Host readies up
-      mockAuth.currentProfile = hostProfile;
-      mockProfile.setProfile(hostProfile);
-      await repository.toggleReady(roomId: room.id, isReady: true);
+        // Host readies up
+        mockAuth.currentProfile = hostProfile;
+        mockProfile.setProfile(hostProfile);
+        await repository.toggleReady(roomId: room.id, isReady: true);
 
-      await Future.delayed(const Duration(milliseconds: 50));
+        await Future.delayed(const Duration(milliseconds: 50));
 
-      expect(notifier.state.players.length, equals(2));
-      expect(notifier.state.allPlayersReady, isTrue);
-      expect(notifier.state.canStartGame, isTrue);
-    });
+        expect(notifier.state.players.length, equals(2));
+        expect(notifier.state.allPlayersReady, isTrue);
+        expect(notifier.state.canStartGame, isTrue);
+      },
+    );
   });
 }

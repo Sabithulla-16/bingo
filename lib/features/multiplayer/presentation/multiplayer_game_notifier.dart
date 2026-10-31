@@ -86,11 +86,15 @@ class MultiplayerGameState {
     if (!isCalled) return BingoCellState.available;
 
     // Check if cell is part of an already-claimed line
-    final isPartOfClaimed = claimedLines.any((l) => l.containsCoordinate(coord));
+    final isPartOfClaimed = claimedLines.any(
+      (l) => l.containsCoordinate(coord),
+    );
     if (isPartOfClaimed) return BingoCellState.claimed;
 
     // Check if cell is part of a completed but unclaimed line
-    final isPartOfUnclaimed = unclaimedCompletedLines.any((l) => l.containsCoordinate(coord));
+    final isPartOfUnclaimed = unclaimedCompletedLines.any(
+      (l) => l.containsCoordinate(coord),
+    );
     if (isPartOfUnclaimed) return BingoCellState.completedUnclaimed;
 
     return BingoCellState.called;
@@ -132,18 +136,18 @@ class MultiplayerGameState {
 
 final multiplayerGameProvider = StateNotifierProvider.autoDispose
     .family<MultiplayerGameNotifier, MultiplayerGameState, String>((
-  ref,
-  roomId,
-) {
-  final repo = ref.watch(multiplayerRepositoryProvider);
-  final authRepo = ref.watch(authRepositoryProvider);
+      ref,
+      roomId,
+    ) {
+      final repo = ref.watch(multiplayerRepositoryProvider);
+      final authRepo = ref.watch(authRepositoryProvider);
 
-  return MultiplayerGameNotifier(
-    roomId: roomId,
-    repository: repo,
-    authRepo: authRepo,
-  );
-});
+      return MultiplayerGameNotifier(
+        roomId: roomId,
+        repository: repo,
+        authRepo: authRepo,
+      );
+    });
 
 class MultiplayerGameNotifier extends StateNotifier<MultiplayerGameState> {
   final String roomId;
@@ -159,10 +163,12 @@ class MultiplayerGameNotifier extends StateNotifier<MultiplayerGameState> {
     required this.repository,
     required this.authRepo,
     BingoBoard? initialBoard,
-  }) : super(MultiplayerGameState(
-          userBoard: initialBoard ?? BingoBoard.quickShuffle(),
-          isLoading: true,
-        )) {
+  }) : super(
+         MultiplayerGameState(
+           userBoard: initialBoard ?? BingoBoard.quickShuffle(),
+           isLoading: true,
+         ),
+       ) {
     _init();
   }
 
@@ -198,7 +204,9 @@ class MultiplayerGameNotifier extends StateNotifier<MultiplayerGameState> {
         _onGameUpdated(updatedGame);
       });
 
-      _playersSub = repository.watchGamePlayers(game.id).listen((updatedPlayers) {
+      _playersSub = repository.watchGamePlayers(game.id).listen((
+        updatedPlayers,
+      ) {
         if (!mounted) return;
         _onPlayersUpdated(updatedPlayers);
       });
@@ -226,25 +234,43 @@ class MultiplayerGameNotifier extends StateNotifier<MultiplayerGameState> {
 
   void _onPlayersUpdated(List<MultiplayerPlayerState> updatedPlayers) {
     final currentUserId = state.currentUserId;
-    final userState = updatedPlayers.where((p) => p.userId == currentUserId).firstOrNull;
+    final userState = updatedPlayers
+        .where((p) => p.userId == currentUserId)
+        .firstOrNull;
 
-    // Detect if another player claimed a line and trigger toast
+    // Only notify if another player just newly claimed a line
     String? toast;
     for (final p in updatedPlayers) {
-      if (p.userId != currentUserId && p.linesClaimed > 0) {
-        final letter = ['B', 'I', 'N', 'G', 'O'][p.linesClaimed - 1];
-        toast = '${p.displayName} claimed a line! (Letter $letter)';
+      if (p.userId != currentUserId) {
+        final prevP = state.players
+            .where((x) => x.userId == p.userId)
+            .firstOrNull;
+        if (p.linesClaimed > (prevP?.linesClaimed ?? 0)) {
+          final letterIndex = (p.linesClaimed - 1).clamp(0, 4);
+          final letter = ['B', 'I', 'N', 'G', 'O'][letterIndex];
+          toast = '${p.displayName} claimed a line! (Letter $letter)';
+        }
       }
     }
 
     BingoBoard updatedBoard = state.userBoard;
-    if (userState != null && userState.boardNumbers.isNotEmpty && state.userBoard.isUnassigned) {
+    if (userState != null && userState.boardNumbers.length == 25) {
       updatedBoard = BingoBoard(userState.boardNumbers);
     }
+
+    // Recompute private unclaimed completed lines for this player's own board only
+    final calledSet = state.game?.calledNumbers.toSet() ?? {};
+    final engine = BingoEngine(
+      board: updatedBoard,
+      calledNumbers: calledSet,
+      claimedLineIds: state.claimedLines.map((l) => l.id).toSet(),
+    );
+    final unclaimed = engine.unclaimedCompletedLines;
 
     state = state.copyWith(
       userBoard: updatedBoard,
       players: updatedPlayers,
+      unclaimedCompletedLines: unclaimed,
       toastNotification: toast,
     );
   }
@@ -269,10 +295,7 @@ class MultiplayerGameNotifier extends StateNotifier<MultiplayerGameState> {
     state = state.copyWith(isCalling: true);
 
     try {
-      await repository.callNumber(
-        gameId: state.game!.id,
-        number: number,
-      );
+      await repository.callNumber(gameId: state.game!.id, number: number);
     } catch (e) {
       if (mounted) {
         state = state.copyWith(errorMessage: 'Failed to call number: $e');
@@ -291,21 +314,28 @@ class MultiplayerGameNotifier extends StateNotifier<MultiplayerGameState> {
     state = state.copyWith(isClaiming: true);
 
     try {
-      final lineNumbers = line.coordinates.map((c) => state.userBoard.getNumberAt(c.row, c.col)).toList();
+      final lineNumbers = line.coordinates
+          .map((c) => state.userBoard.getNumberAt(c.row, c.col))
+          .toList();
       final hasWon = await repository.claimLine(
         gameId: state.game!.id,
         lineType: line.name,
         numbers: lineNumbers,
       );
 
-      final updatedClaimed = Set<WinningLine>.from(state.claimedLines)..add(line);
-      final updatedUnclaimed = List<WinningLine>.from(state.unclaimedCompletedLines)..remove(line);
+      final updatedClaimed = Set<WinningLine>.from(state.claimedLines)
+        ..add(line);
+      final updatedUnclaimed = List<WinningLine>.from(
+        state.unclaimedCompletedLines,
+      )..remove(line);
 
       if (mounted) {
         state = state.copyWith(
           claimedLines: updatedClaimed,
           unclaimedCompletedLines: updatedUnclaimed,
-          toastNotification: hasWon ? 'BINGO! YOU WON THE MATCH!' : 'Line Claimed! Letter ${state.nextAwardLetter}',
+          toastNotification: hasWon
+              ? 'BINGO! YOU WON THE MATCH!'
+              : 'Line Claimed! Letter ${state.nextAwardLetter}',
         );
       }
     } catch (e) {

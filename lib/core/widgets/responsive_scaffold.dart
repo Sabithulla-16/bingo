@@ -28,12 +28,13 @@ class ResponsiveScaffold extends StatelessWidget {
   Widget build(BuildContext context) {
     Widget content = Center(
       child: ConstrainedBox(
-        constraints:
-            const BoxConstraints(maxWidth: AppDimensions.maxContentWidth),
+        constraints: const BoxConstraints(
+          maxWidth: AppDimensions.maxContentWidth,
+        ),
         child: Padding(
-          padding: padding ??
-              const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.marginMobile),
+          padding:
+              padding ??
+              const EdgeInsets.symmetric(horizontal: AppSpacing.marginMobile),
           child: body,
         ),
       ),
@@ -56,7 +57,8 @@ class ResponsiveScaffold extends StatelessWidget {
               child: Center(
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(
-                      maxWidth: AppDimensions.maxContentWidth),
+                    maxWidth: AppDimensions.maxContentWidth,
+                  ),
                   child: bottomNavigationBar,
                 ),
               ),

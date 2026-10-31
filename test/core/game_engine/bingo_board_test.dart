@@ -4,20 +4,23 @@ import 'package:bingo/core/game_engine/board_coordinate.dart';
 
 void main() {
   group('BingoBoard Tests', () {
-    test('quickShuffle produces a 100% valid bijection permutation of 1..25', () {
-      final board = BingoBoard.quickShuffle();
+    test(
+      'quickShuffle produces a 100% valid bijection permutation of 1..25',
+      () {
+        final board = BingoBoard.quickShuffle();
 
-      expect(board.numbers.length, equals(25));
-      expect(board.isFilledAndValid, isTrue);
-      expect(board.unassignedNumbers, isEmpty);
+        expect(board.numbers.length, equals(25));
+        expect(board.isFilledAndValid, isTrue);
+        expect(board.unassignedNumbers, isEmpty);
 
-      // Verify bijection invariant: each number in 1..25 appears exactly once
-      final setOfNumbers = board.numbers.toSet();
-      expect(setOfNumbers.length, equals(25));
-      for (int i = 1; i <= 25; i++) {
-        expect(setOfNumbers.contains(i), isTrue);
-      }
-    });
+        // Verify bijection invariant: each number in 1..25 appears exactly once
+        final setOfNumbers = board.numbers.toSet();
+        expect(setOfNumbers.length, equals(25));
+        for (int i = 1; i <= 25; i++) {
+          expect(setOfNumbers.contains(i), isTrue);
+        }
+      },
+    );
 
     test('empty board contains 25 zeroes and 25 unassigned numbers', () {
       final board = BingoBoard.empty();

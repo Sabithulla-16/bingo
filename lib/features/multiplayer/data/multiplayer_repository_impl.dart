@@ -18,28 +18,30 @@ class MultiplayerRepositoryImpl implements MultiplayerRepository {
   final Map<String, Room> _localRooms = {};
   final Map<String, List<RoomPlayer>> _localPlayers = {};
   final Map<String, StreamController<Room>> _roomControllers = {};
-  final Map<String, StreamController<List<RoomPlayer>>> _playersControllers = {};
+  final Map<String, StreamController<List<RoomPlayer>>> _playersControllers =
+      {};
 
   final Map<String, MultiplayerGame> _localGames = {};
   final Map<String, List<MultiplayerPlayerState>> _localGamePlayers = {};
   final Map<String, StreamController<MultiplayerGame>> _gameControllers = {};
-  final Map<String, StreamController<List<MultiplayerPlayerState>>> _gamePlayersControllers = {};
+  final Map<String, StreamController<List<MultiplayerPlayerState>>>
+  _gamePlayersControllers = {};
   final Map<String, List<Map<String, dynamic>>> _localRoomHistory = {};
 
   MultiplayerRepositoryImpl({
     SupabaseClient? supabaseClient,
     required AuthRepository authRepository,
     required ProfileRepository profileRepository,
-  })  : _supabaseClient = supabaseClient,
-        _authRepository = authRepository,
-        _profileRepository = profileRepository;
+  }) : _supabaseClient = supabaseClient,
+       _authRepository = authRepository,
+       _profileRepository = profileRepository;
 
   bool get _isOnline =>
-      _supabaseClient != null &&
-      _supabaseClient.auth.currentUser != null;
+      _supabaseClient != null && _supabaseClient.auth.currentUser != null;
 
   String _generateRoomCode() {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Avoid confusing 0/O, 1/I
+    const chars =
+        'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Avoid confusing 0/O, 1/I
     final rnd = Random();
     return String.fromCharCodes(
       Iterable.generate(6, (_) => chars.codeUnitAt(rnd.nextInt(chars.length))),
@@ -60,7 +62,10 @@ class MultiplayerRepositoryImpl implements MultiplayerRepository {
     required int turnTimeSeconds,
   }) async {
     final currentProfile = await _getCurrentProfile();
-    final userId = currentProfile?.id ?? _authRepository.currentUserId ?? 'host_${DateTime.now().millisecondsSinceEpoch}';
+    final userId =
+        currentProfile?.id ??
+        _authRepository.currentUserId ??
+        'host_${DateTime.now().millisecondsSinceEpoch}';
     final userName = currentProfile?.displayName ?? 'Host Player';
     final userAvatar = currentProfile?.avatarColorHex ?? '#FF6B5E';
 
@@ -118,7 +123,10 @@ class MultiplayerRepositoryImpl implements MultiplayerRepository {
   Future<Room> joinRoomByCode(String code) async {
     final cleanCode = code.trim().toUpperCase();
     final currentProfile = await _getCurrentProfile();
-    final userId = currentProfile?.id ?? _authRepository.currentUserId ?? 'guest_${DateTime.now().millisecondsSinceEpoch}';
+    final userId =
+        currentProfile?.id ??
+        _authRepository.currentUserId ??
+        'guest_${DateTime.now().millisecondsSinceEpoch}';
     final userName = currentProfile?.displayName ?? 'Guest Player';
     final userAvatar = currentProfile?.avatarColorHex ?? '#20243A';
 
@@ -152,7 +160,9 @@ class MultiplayerRepositoryImpl implements MultiplayerRepository {
     // Check capacity
     final currentPlayers = await getRoomPlayers(targetRoom.id);
     if (currentPlayers.length >= targetRoom.maxPlayers) {
-      throw StateError('Room is full (${targetRoom.maxPlayers}/${targetRoom.maxPlayers} players).');
+      throw StateError(
+        'Room is full (${targetRoom.maxPlayers}/${targetRoom.maxPlayers} players).',
+      );
     }
 
     // Check if player already joined
@@ -494,10 +504,10 @@ class MultiplayerRepositoryImpl implements MultiplayerRepository {
 
     if (_isOnline) {
       try {
-        await _supabaseClient!.rpc('rpc_submit_board', params: {
-          'p_game_id': gameId,
-          'p_board': numbers,
-        });
+        await _supabaseClient!.rpc(
+          'rpc_submit_board',
+          params: {'p_game_id': gameId, 'p_board': numbers},
+        );
         return;
       } catch (_) {}
     }
@@ -512,13 +522,15 @@ class MultiplayerRepositoryImpl implements MultiplayerRepository {
           isBoardConfirmed: true,
         );
       } else {
-        players.add(MultiplayerPlayerState(
-          userId: userId,
-          displayName: 'Player',
-          avatarColorHex: '#FF6B5E',
-          boardNumbers: List.unmodifiable(numbers),
-          isBoardConfirmed: true,
-        ));
+        players.add(
+          MultiplayerPlayerState(
+            userId: userId,
+            displayName: 'Player',
+            avatarColorHex: '#FF6B5E',
+            boardNumbers: List.unmodifiable(numbers),
+            isBoardConfirmed: true,
+          ),
+        );
       }
 
       // Check if all players confirmed
@@ -539,7 +551,9 @@ class MultiplayerRepositoryImpl implements MultiplayerRepository {
           _emitGameUpdate(gameId);
 
           if (room != null) {
-            _localRooms[game.roomId] = room.copyWith(status: RoomStatus.inProgress);
+            _localRooms[game.roomId] = room.copyWith(
+              status: RoomStatus.inProgress,
+            );
             _emitRoomUpdate(game.roomId);
           }
         }
@@ -550,16 +564,13 @@ class MultiplayerRepositoryImpl implements MultiplayerRepository {
   }
 
   @override
-  Future<void> callNumber({
-    required String gameId,
-    required int number,
-  }) async {
+  Future<void> callNumber({required String gameId, required int number}) async {
     if (_isOnline) {
       try {
-        await _supabaseClient!.rpc('rpc_call_number', params: {
-          'p_game_id': gameId,
-          'p_number': number,
-        });
+        await _supabaseClient!.rpc(
+          'rpc_call_number',
+          params: {'p_game_id': gameId, 'p_number': number},
+        );
         return;
       } catch (_) {}
     }
@@ -578,7 +589,9 @@ class MultiplayerRepositoryImpl implements MultiplayerRepository {
     if (players.isEmpty) return;
 
     // Advance turn to next player in seatIndex order
-    final currentIndex = players.indexWhere((p) => p.userId == game.currentTurnUserId);
+    final currentIndex = players.indexWhere(
+      (p) => p.userId == game.currentTurnUserId,
+    );
     final nextIndex = (currentIndex + 1) % players.length;
     final nextUserId = players[nextIndex].userId;
 
@@ -606,11 +619,14 @@ class MultiplayerRepositoryImpl implements MultiplayerRepository {
 
     if (_isOnline) {
       try {
-        final result = await _supabaseClient!.rpc('rpc_claim_line', params: {
-          'p_game_id': gameId,
-          'p_line_type': lineType,
-          'p_numbers': numbers,
-        });
+        final result = await _supabaseClient!.rpc(
+          'rpc_claim_line',
+          params: {
+            'p_game_id': gameId,
+            'p_line_type': lineType,
+            'p_numbers': numbers,
+          },
+        );
         return result as bool? ?? false;
       } catch (_) {}
     }
@@ -662,7 +678,9 @@ class MultiplayerRepositoryImpl implements MultiplayerRepository {
     final game = _localGames[gameId];
     if (game != null) {
       _localGames[gameId] = game.copyWith(
-        prepDeadline: game.prepDeadline.add(Duration(seconds: extensionSeconds)),
+        prepDeadline: game.prepDeadline.add(
+          Duration(seconds: extensionSeconds),
+        ),
         updatedAt: DateTime.now(),
       );
       _emitGameUpdate(gameId);
@@ -680,7 +698,8 @@ class MultiplayerRepositoryImpl implements MultiplayerRepository {
     int? roundNumber,
   }) async {
     final game = _localGames[gameId];
-    final round = roundNumber ??
+    final round =
+        roundNumber ??
         game?.roundNumber ??
         ((_localRoomHistory[roomId]?.length ?? 0) + 1);
 
@@ -743,7 +762,11 @@ class MultiplayerRepositoryImpl implements MultiplayerRepository {
 
     final list = _localRoomHistory[roomId] ?? [];
     final reversed = List<Map<String, dynamic>>.from(list);
-    reversed.sort((a, b) => (b['round_number'] as int? ?? 0).compareTo(a['round_number'] as int? ?? 0));
+    reversed.sort(
+      (a, b) => (b['round_number'] as int? ?? 0).compareTo(
+        a['round_number'] as int? ?? 0,
+      ),
+    );
     return reversed;
   }
 
@@ -755,7 +778,11 @@ class MultiplayerRepositoryImpl implements MultiplayerRepository {
 
     // Chronological order for streak calculation
     final chronological = List<Map<String, dynamic>>.from(history)
-      ..sort((a, b) => (a['round_number'] as int? ?? 0).compareTo(b['round_number'] as int? ?? 0));
+      ..sort(
+        (a, b) => (a['round_number'] as int? ?? 0).compareTo(
+          b['round_number'] as int? ?? 0,
+        ),
+      );
 
     final Map<String, Map<String, dynamic>> playerStats = {};
 
@@ -787,7 +814,8 @@ class MultiplayerRepositoryImpl implements MultiplayerRepository {
       for (final raw in outcomes) {
         final outcome = raw as Map<String, dynamic>;
         final uid = outcome['user_id'] as String? ?? '';
-        final isWinner = (winnerId != null && winnerId == uid) ||
+        final isWinner =
+            (winnerId != null && winnerId == uid) ||
             (outcome['is_winner'] as bool? ?? false);
 
         final stat = playerStats.putIfAbsent(
@@ -795,7 +823,8 @@ class MultiplayerRepositoryImpl implements MultiplayerRepository {
           () => {
             'user_id': uid,
             'display_name': outcome['display_name'] as String? ?? 'Player',
-            'avatar_color_hex': outcome['avatar_color_hex'] as String? ?? '#FC695C',
+            'avatar_color_hex':
+                outcome['avatar_color_hex'] as String? ?? '#FC695C',
             'is_host': outcome['is_host'] as bool? ?? false,
             'is_you': uid == currentUid,
             'rounds_played': 0,
@@ -818,11 +847,13 @@ class MultiplayerRepositoryImpl implements MultiplayerRepository {
           stat['current_streak'] = currStreak;
           final bestStreak = stat['best_streak'] as int;
           if (currStreak > bestStreak) stat['best_streak'] = currStreak;
-          stat['last_result'] = 'Winner R${roundNum.toString().padLeft(2, '0')} ⭐';
+          stat['last_result'] =
+              'Winner R${roundNum.toString().padLeft(2, '0')} ⭐';
         } else {
           stat['losses'] = (stat['losses'] as int) + 1;
           stat['current_streak'] = 0;
-          stat['last_result'] = 'Defeat (R${roundNum.toString().padLeft(2, '0')})';
+          stat['last_result'] =
+              'Defeat (R${roundNum.toString().padLeft(2, '0')})';
         }
 
         final played = stat['rounds_played'] as int;
@@ -835,9 +866,13 @@ class MultiplayerRepositoryImpl implements MultiplayerRepository {
 
     // Sort by wins desc, win rate desc, best streak desc
     list.sort((a, b) {
-      final winComp = (b['rounds_won'] as int).compareTo(a['rounds_won'] as int);
+      final winComp = (b['rounds_won'] as int).compareTo(
+        a['rounds_won'] as int,
+      );
       if (winComp != 0) return winComp;
-      final rateComp = (b['win_rate'] as double).compareTo(a['win_rate'] as double);
+      final rateComp = (b['win_rate'] as double).compareTo(
+        a['win_rate'] as double,
+      );
       if (rateComp != 0) return rateComp;
       return (b['best_streak'] as int).compareTo(a['best_streak'] as int);
     });
@@ -848,7 +883,8 @@ class MultiplayerRepositoryImpl implements MultiplayerRepository {
       if (i > 0) {
         final prev = list[i - 1];
         final curr = list[i];
-        final isTied = curr['rounds_won'] == prev['rounds_won'] &&
+        final isTied =
+            curr['rounds_won'] == prev['rounds_won'] &&
             (curr['win_rate'] as double).toStringAsFixed(1) ==
                 (prev['win_rate'] as double).toStringAsFixed(1) &&
             curr['best_streak'] == prev['best_streak'];

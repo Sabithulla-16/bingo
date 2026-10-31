@@ -30,9 +30,7 @@ void main() {
     setUp(() {
       mockRepo = MockProfileRepoForFeedback();
       container = ProviderContainer(
-        overrides: [
-          profileRepositoryProvider.overrideWithValue(mockRepo),
-        ],
+        overrides: [profileRepositoryProvider.overrideWithValue(mockRepo)],
       );
     });
 
@@ -40,28 +38,34 @@ void main() {
       container.dispose();
     });
 
-    test('FeedbackService triggers lightTap, callNumber, claimLine and victory without errors', () async {
-      final feedback = container.read(feedbackServiceProvider);
+    test(
+      'FeedbackService triggers lightTap, callNumber, claimLine and victory without errors',
+      () async {
+        final feedback = container.read(feedbackServiceProvider);
 
-      // Verify each feedback method executes cleanly
-      await expectLater(feedback.lightTap(), completes);
-      await expectLater(feedback.callNumber(), completes);
-      await expectLater(feedback.claimLine(), completes);
-      await expectLater(feedback.victoryBingo(), completes);
-      await expectLater(feedback.errorAlert(), completes);
-    });
+        // Verify each feedback method executes cleanly
+        await expectLater(feedback.lightTap(), completes);
+        await expectLater(feedback.callNumber(), completes);
+        await expectLater(feedback.claimLine(), completes);
+        await expectLater(feedback.victoryBingo(), completes);
+        await expectLater(feedback.errorAlert(), completes);
+      },
+    );
 
-    test('FeedbackService honors disabled haptics and sounds preferences', () async {
-      // Disable both sound and haptics
-      final notifier = container.read(playerPreferencesProvider.notifier);
-      await notifier.toggleHaptics();
-      await notifier.toggleSoundEffects();
+    test(
+      'FeedbackService honors disabled haptics and sounds preferences',
+      () async {
+        // Disable both sound and haptics
+        final notifier = container.read(playerPreferencesProvider.notifier);
+        await notifier.toggleHaptics();
+        await notifier.toggleSoundEffects();
 
-      final feedback = container.read(feedbackServiceProvider);
-      await expectLater(feedback.lightTap(), completes);
-      await expectLater(feedback.callNumber(), completes);
-      await expectLater(feedback.claimLine(), completes);
-      await expectLater(feedback.victoryBingo(), completes);
-    });
+        final feedback = container.read(feedbackServiceProvider);
+        await expectLater(feedback.lightTap(), completes);
+        await expectLater(feedback.callNumber(), completes);
+        await expectLater(feedback.claimLine(), completes);
+        await expectLater(feedback.victoryBingo(), completes);
+      },
+    );
   });
 }

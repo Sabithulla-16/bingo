@@ -24,14 +24,14 @@ class RoundPlayerOutcome {
   });
 
   Map<String, dynamic> toJson() => {
-        'user_id': userId,
-        'display_name': displayName,
-        'avatar_color_hex': avatarColorHex,
-        'is_winner': isWinner,
-        'is_host': isHost,
-        'lines_claimed_count': linesClaimedCount,
-        'claimed_letters': claimedLetters,
-      };
+    'user_id': userId,
+    'display_name': displayName,
+    'avatar_color_hex': avatarColorHex,
+    'is_winner': isWinner,
+    'is_host': isHost,
+    'lines_claimed_count': linesClaimedCount,
+    'claimed_letters': claimedLetters,
+  };
 
   factory RoundPlayerOutcome.fromJson(
     Map<String, dynamic> json, {
@@ -81,16 +81,16 @@ class RoomRoundRecord {
   });
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'room_id': roomId,
-        'round_number': roundNumber,
-        'winner_id': winnerId,
-        'winner_name': winnerName,
-        'total_calls': totalCalls,
-        'player_count': playerCount,
-        'player_outcomes': playerOutcomes.map((o) => o.toJson()).toList(),
-        'finished_at': finishedAt.toIso8601String(),
-      };
+    'id': id,
+    'room_id': roomId,
+    'round_number': roundNumber,
+    'winner_id': winnerId,
+    'winner_name': winnerName,
+    'total_calls': totalCalls,
+    'player_count': playerCount,
+    'player_outcomes': playerOutcomes.map((o) => o.toJson()).toList(),
+    'finished_at': finishedAt.toIso8601String(),
+  };
 
   factory RoomRoundRecord.fromJson(
     Map<String, dynamic> json, {
@@ -105,19 +105,17 @@ class RoomRoundRecord {
       winnerName: json['winner_name'] as String? ?? 'Unknown',
       totalCalls: json['total_calls'] as int? ?? 0,
       playerCount: json['player_count'] as int? ?? 0,
-      playerOutcomes:
-          outcomesRaw
-              .map(
-                (o) => RoundPlayerOutcome.fromJson(
-                  o as Map<String, dynamic>,
-                  currentUserId: currentUserId,
-                ),
-              )
-              .toList(),
-      finishedAt:
-          json['finished_at'] != null
-              ? DateTime.parse(json['finished_at'] as String)
-              : DateTime.now(),
+      playerOutcomes: outcomesRaw
+          .map(
+            (o) => RoundPlayerOutcome.fromJson(
+              o as Map<String, dynamic>,
+              currentUserId: currentUserId,
+            ),
+          )
+          .toList(),
+      finishedAt: json['finished_at'] != null
+          ? DateTime.parse(json['finished_at'] as String)
+          : DateTime.now(),
     );
   }
 }

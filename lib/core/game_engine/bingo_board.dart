@@ -103,7 +103,8 @@ class BingoBoard {
   bool get isUnassigned => numbers.every((n) => n == 0);
 
   /// Validates the board against all official rules.
-  BoardValidationResult get validationResult => BoardValidator.validate(numbers);
+  BoardValidationResult get validationResult =>
+      BoardValidator.validate(numbers);
 
   /// True if the board contains all 25 numbers without duplicates or missing values.
   bool get isFilledAndValid => validationResult.isValid;
@@ -123,7 +124,9 @@ class BingoBoard {
   Map<String, dynamic> toJson() => {'numbers': numbers};
 
   factory BingoBoard.fromJson(Map<String, dynamic> json) {
-    final raw = (json['numbers'] as List<dynamic>).map((e) => (e as num).toInt()).toList();
+    final raw = (json['numbers'] as List<dynamic>)
+        .map((e) => (e as num).toInt())
+        .toList();
     return BingoBoard(raw);
   }
 

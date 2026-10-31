@@ -16,7 +16,9 @@ class BoardValidationResult {
     this.emptySlotsCount = 0,
   });
 
-  static const BoardValidationResult valid = BoardValidationResult(isValid: true);
+  static const BoardValidationResult valid = BoardValidationResult(
+    isValid: true,
+  );
 }
 
 /// Static validator enforcing the bijection invariant on 5x5 Bingo boards.
@@ -31,7 +33,8 @@ class BoardValidator {
     if (numbers.length != 25) {
       return BoardValidationResult(
         isValid: false,
-        errorSummary: 'Board must contain exactly 25 cells (found ${numbers.length}).',
+        errorSummary:
+            'Board must contain exactly 25 cells (found ${numbers.length}).',
         emptySlotsCount: 25 - numbers.length > 0 ? 25 - numbers.length : 0,
       );
     }
@@ -64,7 +67,8 @@ class BoardValidator {
     if (emptyCount > 0) {
       return BoardValidationResult(
         isValid: false,
-        errorSummary: '$emptyCount cells are unassigned. Please fill all 25 numbers.',
+        errorSummary:
+            '$emptyCount cells are unassigned. Please fill all 25 numbers.',
         missingNumbers: missing,
         duplicateNumbers: duplicates,
         outOfRangeNumbers: outOfRange,
@@ -75,7 +79,8 @@ class BoardValidator {
     if (outOfRange.isNotEmpty) {
       return BoardValidationResult(
         isValid: false,
-        errorSummary: 'Numbers must be between 1 and 25 (found: ${outOfRange.join(', ')}).',
+        errorSummary:
+            'Numbers must be between 1 and 25 (found: ${outOfRange.join(', ')}).',
         missingNumbers: missing,
         duplicateNumbers: duplicates,
         outOfRangeNumbers: outOfRange,

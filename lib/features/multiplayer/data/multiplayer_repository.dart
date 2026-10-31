@@ -20,16 +20,10 @@ abstract class MultiplayerRepository {
   Future<List<RoomPlayer>> getRoomPlayers(String roomId);
 
   /// Toggles the ready state of the current player.
-  Future<void> toggleReady({
-    required String roomId,
-    required bool isReady,
-  });
+  Future<void> toggleReady({required String roomId, required bool isReady});
 
   /// Allows the host to kick a player from the room.
-  Future<void> kickPlayer({
-    required String roomId,
-    required String userId,
-  });
+  Future<void> kickPlayer({required String roomId, required String userId});
 
   /// Allows host to start the game when minimum players are ready.
   Future<void> startGame(String roomId);
@@ -61,10 +55,7 @@ abstract class MultiplayerRepository {
   });
 
   /// Calls an uncalled number on player's turn.
-  Future<void> callNumber({
-    required String gameId,
-    required int number,
-  });
+  Future<void> callNumber({required String gameId, required int number});
 
   /// Claims a completed line and returns true if this claim won the match (5 lines).
   Future<bool> claimLine({

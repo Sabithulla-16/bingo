@@ -3,6 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/game_engine/ai_decision_engine.dart';
 import '../../../core/game_engine/bingo_board.dart';
 import '../../../core/game_engine/bingo_engine.dart';
+import '../ai/bot_configuration.dart';
+import '../ai/bot_decision_engine.dart';
+import '../ai/bot_game_state.dart';
 
 enum GameWinner { none, player, computer, draw }
 
@@ -40,17 +43,17 @@ class SinglePlayerMatchState {
 
   /// Evaluates player's private board against called numbers and claimed lines.
   BingoEngine get playerEngine => BingoEngine(
-        board: playerBoard,
-        calledNumbers: calledNumbers.toSet(),
-        claimedLineIds: playerClaimedLineIds,
-      );
+    board: playerBoard,
+    calledNumbers: calledNumbers.toSet(),
+    claimedLineIds: playerClaimedLineIds,
+  );
 
   /// Evaluates computer's private board against called numbers and claimed lines.
   BingoEngine get computerEngine => BingoEngine(
-        board: computerBoard,
-        calledNumbers: calledNumbers.toSet(),
-        claimedLineIds: computerClaimedLineIds,
-      );
+    board: computerBoard,
+    calledNumbers: calledNumbers.toSet(),
+    claimedLineIds: computerClaimedLineIds,
+  );
 
   int? get lastCalledNumber =>
       calledNumbers.isNotEmpty ? calledNumbers.last : null;
@@ -97,12 +100,14 @@ class SinglePlayerMatchState {
 }
 
 /// Provider for selected AI difficulty during Single Player setup.
-final selectedDifficultyProvider =
-    StateProvider<AiDifficulty>((ref) => AiDifficulty.medium);
+final selectedDifficultyProvider = StateProvider<AiDifficulty>(
+  (ref) => AiDifficulty.medium,
+);
 
 /// Provider holding the user's prepared board before match kickoff.
-final preparedBoardProvider =
-    StateProvider<BingoBoard>((ref) => BingoBoard.quickShuffle());
+final preparedBoardProvider = StateProvider<BingoBoard>(
+  (ref) => BingoBoard.quickShuffle(),
+);
 
 /// Riverpod StateNotifierProvider managing active single player gameplay.
 final singlePlayerGameProvider =
@@ -264,19 +269,20 @@ class SinglePlayerGameNotifier extends StateNotifier<SinglePlayerMatchState?> {
       if (byPlayer) {
         _scheduleComputerTurn();
       } else {
-        state = current.copyWith(
-          isPlayerTurn: true,
-          isComputerThinking: false,
-        );
+        state = current.copyWith(isPlayerTurn: true, isComputerThinking: false);
       }
       return;
     }
 
     // Claim strictly ONE line in this step
     final lineToClaim = unclaimed.first;
-    final updatedBotClaims = {...current.computerClaimedLineIds, lineToClaim.id};
+    final updatedBotClaims = {
+      ...current.computerClaimedLineIds,
+      lineToClaim.id,
+    };
     final letterIndex = updatedBotClaims.length - 1;
-    final letter = (letterIndex >= 0 && letterIndex < BingoEngine.lettersSequence.length)
+    final letter =
+        (letterIndex >= 0 && letterIndex < BingoEngine.lettersSequence.length)
         ? BingoEngine.lettersSequence[letterIndex]
         : 'O';
 
@@ -316,10 +322,7 @@ class SinglePlayerGameNotifier extends StateNotifier<SinglePlayerMatchState?> {
       if (byPlayer) {
         _scheduleComputerTurn();
       } else {
-        state = state?.copyWith(
-          isPlayerTurn: true,
-          isComputerThinking: false,
-        );
+        state = state?.copyWith(isPlayerTurn: true, isComputerThinking: false);
       }
     }
   }
@@ -330,12 +333,23 @@ class SinglePlayerGameNotifier extends StateNotifier<SinglePlayerMatchState?> {
       final current = state;
       if (current == null || current.winner != GameWinner.none) return;
 
-      final botCall = AiDecisionEngine.selectNextCall(
-        board: current.computerBoard,
+      final botState = BotGameState(
+        botBoard: current.computerBoard,
         calledNumbers: current.calledNumbers.toSet(),
-        difficulty: current.difficulty,
+        botClaimedLineIds: current.computerClaimedLineIds,
+        opponentLetterCount: current.playerEngine.claimedLinesCount,
+        isMatchActive: current.winner == GameWinner.none,
       );
 
+      final decisionEngine = BotDecisionEngine(
+        difficulty: current.difficulty,
+        configuration: BotConfiguration(
+          minThinkingDelayMs: 0,
+          maxThinkingDelayMs: 0,
+        ),
+      );
+
+      final botCall = decisionEngine.selectNextCallSync(botState);
       _applyCall(botCall, byPlayer: false);
       return;
     }
@@ -344,12 +358,23 @@ class SinglePlayerGameNotifier extends StateNotifier<SinglePlayerMatchState?> {
       final current = state;
       if (current == null || current.winner != GameWinner.none) return;
 
-      final botCall = AiDecisionEngine.selectNextCall(
-        board: current.computerBoard,
+      final botState = BotGameState(
+        botBoard: current.computerBoard,
         calledNumbers: current.calledNumbers.toSet(),
-        difficulty: current.difficulty,
+        botClaimedLineIds: current.computerClaimedLineIds,
+        opponentLetterCount: current.playerEngine.claimedLinesCount,
+        isMatchActive: current.winner == GameWinner.none,
       );
 
+      final decisionEngine = BotDecisionEngine(
+        difficulty: current.difficulty,
+        configuration: BotConfiguration(
+          minThinkingDelayMs: computerResponseDelay.inMilliseconds,
+          maxThinkingDelayMs: computerResponseDelay.inMilliseconds,
+        ),
+      );
+
+      final botCall = decisionEngine.selectNextCallSync(botState);
       _applyCall(botCall, byPlayer: false);
     });
   }
