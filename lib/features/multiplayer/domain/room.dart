@@ -216,6 +216,19 @@ class RoomPlayer {
     };
   }
 
+  /// Formats map for database persistence (matches public.room_players table schema)
+  Map<String, dynamic> toDbMap() {
+    return {
+      'id': id,
+      'room_id': roomId,
+      'user_id': userId,
+      'is_host': isHost,
+      'is_ready': isReady,
+      'seat_index': seatIndex,
+      'joined_at': joinedAt.toIso8601String(),
+    };
+  }
+
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||

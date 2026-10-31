@@ -1,7 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../data/supabase/supabase_provider.dart';
+import '../../features/achievements/presentation/achievements_screen.dart';
 import '../../features/authentication/presentation/auth_screen.dart';
+import '../../features/earn_chips/presentation/earn_chips_screen.dart';
 import '../../features/home/presentation/home_screen.dart';
 import '../../features/multiplayer/board_preparation/multiplayer_board_prep_screen.dart';
 import '../../features/multiplayer/create_room/create_room_screen.dart';
@@ -17,6 +19,7 @@ import '../../features/single_player/difficulty/single_player_difficulty_screen.
 import '../../features/single_player/gameplay/single_player_gameplay_screen.dart';
 import '../../features/single_player/result/single_player_result_screen.dart';
 import '../../features/splash/presentation/splash_screen.dart';
+import '../../features/store/presentation/store_screen.dart';
 import 'app_routes.dart';
 import 'route_guards.dart';
 
@@ -130,6 +133,20 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.profile,
         builder: (context, state) => const ProfileScreen(),
+      ),
+
+      // Store, Earn Chips & Achievements Routes
+      GoRoute(
+        path: AppRoutes.store,
+        builder: (context, state) => const StoreScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.earnChips,
+        builder: (context, state) => const EarnChipsScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.achievements,
+        builder: (context, state) => const AchievementsScreen(),
       ),
     ],
   );

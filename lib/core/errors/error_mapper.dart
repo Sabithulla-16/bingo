@@ -174,7 +174,9 @@ class ErrorMapper {
     if (lower.contains('room code') ||
         lower.contains('room not found') ||
         lower.contains('invalid code') ||
-        lower.contains('could not find room')) {
+        lower.contains('could not find room') ||
+        lower.contains('room with code') ||
+        (lower.contains('room') && lower.contains('not found'))) {
       return AppError(
         code: AppErrorCode.roomNotFound,
         message: "We couldn't find that room. Check the code and try again.",
@@ -196,7 +198,8 @@ class ErrorMapper {
 
     if (lower.contains('room expired') ||
         lower.contains('room is no longer available') ||
-        lower.contains('room finished')) {
+        lower.contains('room finished') ||
+        lower.contains('already started')) {
       return AppError(
         code: AppErrorCode.roomExpired,
         message: 'This room is no longer available.',

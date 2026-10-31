@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../core/errors/error_logger.dart';
 import '../../authentication/domain/auth_repository.dart';
 import '../../profile/domain/player_profile.dart';
 import '../../profile/domain/profile_repository.dart';
@@ -77,7 +78,7 @@ class MultiplayerRepositoryImpl implements MultiplayerRepository {
     final userName = currentProfile?.displayName ?? 'Host Player';
     final userAvatar = currentProfile?.avatarColorHex ?? '#FF6B5E';
 
-    final roomId = 'room_${DateTime.now().millisecondsSinceEpoch}';
+    final roomId = const Uuid().v4();
     final code = _generateRoomCode();
 
     final room = Room(
@@ -93,7 +94,7 @@ class MultiplayerRepositoryImpl implements MultiplayerRepository {
     );
 
     final hostPlayer = RoomPlayer(
-      id: 'rp_${DateTime.now().millisecondsSinceEpoch}',
+      id: const Uuid().v4(),
       roomId: roomId,
       userId: userId,
       displayName: userName,
@@ -112,9 +113,10 @@ class MultiplayerRepositoryImpl implements MultiplayerRepository {
             .select()
             .single();
 
-        await _supabaseClient.from('room_players').insert(hostPlayer.toMap());
+        await _supabaseClient.from('room_players').insert(hostPlayer.toDbMap());
         return Room.fromMap(insertedRoom);
-      } catch (_) {
+      } catch (e, st) {
+        ErrorLogger.logUnhandled(e, st, source: 'createRoom_supabase');
         // Fallback to local
       }
     }
@@ -190,7 +192,7 @@ class MultiplayerRepositoryImpl implements MultiplayerRepository {
     }
 
     final newPlayer = RoomPlayer(
-      id: 'rp_${DateTime.now().millisecondsSinceEpoch}',
+      id: const Uuid().v4(),
       roomId: targetRoom.id,
       userId: userId,
       displayName: userName,
@@ -203,9 +205,10 @@ class MultiplayerRepositoryImpl implements MultiplayerRepository {
 
     if (_isOnline) {
       try {
-        await _supabaseClient!.from('room_players').insert(newPlayer.toMap());
+        await _supabaseClient!.from('room_players').insert(newPlayer.toDbMap());
         return targetRoom;
-      } catch (_) {
+      } catch (e, st) {
+        ErrorLogger.logUnhandled(e, st, source: 'joinRoom_supabase');
         // Fallback to local
       }
     }
@@ -429,7 +432,7 @@ class MultiplayerRepositoryImpl implements MultiplayerRepository {
     if (game == null) {
       final room = await getRoom(roomId);
       final prepSec = room?.prepTimeSeconds ?? 45;
-      final gameId = 'game_${DateTime.now().millisecondsSinceEpoch}';
+      final gameId = const Uuid().v4();
 
       game = MultiplayerGame(
         id: gameId,

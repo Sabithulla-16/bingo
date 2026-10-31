@@ -28,6 +28,11 @@ class AppRoutes {
   // Profile
   static const String profile = '/profile';
 
+  // Store, Earn Chips & Achievements
+  static const String store = '/store';
+  static const String earnChips = '/earn-chips';
+  static const String achievements = '/achievements';
+
   // Helper generators for parameterized paths
   static String singlePlayerGamePath(String gameId) =>
       '/single-player/game/$gameId';

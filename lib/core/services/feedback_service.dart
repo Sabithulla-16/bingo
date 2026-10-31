@@ -99,6 +99,11 @@ class FeedbackService {
     await _playSound('bingo_voice.wav', player: _victoryPlayer);
   }
 
+  /// Convenience aliases
+  Future<void> celebration() => victoryBingo();
+  Future<void> victory() => victoryBingo();
+  Future<void> lineStrike() => claimLine();
+
   /// Error or invalid interaction warning (e.g. attempting to tap an already called cell).
   Future<void> errorAlert() async {
     if (_hapticsEnabled) {

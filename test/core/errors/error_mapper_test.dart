@@ -180,6 +180,23 @@ void main() {
         );
       });
 
+      test('maps state error room with code not found', () {
+        final error = StateError('Room with code "ABCDEF" not found.');
+        final mapped = ErrorMapper.map(error);
+        expect(mapped.code, equals(AppErrorCode.roomNotFound));
+        expect(
+          mapped.message,
+          equals("We couldn't find that room. Check the code and try again."),
+        );
+      });
+
+      test('maps room already started', () {
+        final error = StateError('This game has already started.');
+        final mapped = ErrorMapper.map(error);
+        expect(mapped.code, equals(AppErrorCode.roomExpired));
+        expect(mapped.message, equals('This room is no longer available.'));
+      });
+
       test('maps room is full', () {
         const error = 'room is full';
         final mapped = ErrorMapper.map(error);

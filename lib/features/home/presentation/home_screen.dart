@@ -67,34 +67,38 @@ class HomeScreen extends ConsumerWidget {
                 ),
                 Row(
                   children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 5,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.softYellow.withAlpha(40),
-                        borderRadius: AppRadii.roundedFull,
-                        border: Border.all(
-                          color: AppColors.softYellowDark.withAlpha(60),
+                    InkWell(
+                      onTap: () => context.push(AppRoutes.store),
+                      borderRadius: AppRadii.roundedFull,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 5,
                         ),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(
-                            Icons.token_rounded,
-                            size: 14,
-                            color: AppColors.softYellowDark,
+                        decoration: BoxDecoration(
+                          color: AppColors.softYellow.withAlpha(40),
+                          borderRadius: AppRadii.roundedFull,
+                          border: Border.all(
+                            color: AppColors.softYellowDark.withAlpha(60),
                           ),
-                          const SizedBox(width: 4),
-                          Text(
-                            '$chips',
-                            style: AppTypography.labelMd.copyWith(
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.token_rounded,
+                              size: 14,
                               color: AppColors.softYellowDark,
-                              fontWeight: FontWeight.w800,
                             ),
-                          ),
-                        ],
+                            const SizedBox(width: 4),
+                            Text(
+                              '$chips',
+                              style: AppTypography.labelMd.copyWith(
+                                color: AppColors.softYellowDark,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -218,6 +222,129 @@ class HomeScreen extends ConsumerWidget {
                   ],
                 ),
               ),
+            ),
+            const SizedBox(height: 16),
+
+            // Store, Earn Chips & Achievements Quick Navigation
+            Row(
+              children: [
+                Expanded(
+                  child: InkWell(
+                    onTap: () => context.push(AppRoutes.store),
+                    borderRadius: AppRadii.roundedLg,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      decoration: BoxDecoration(
+                        color: AppColors.surface,
+                        borderRadius: AppRadii.roundedLg,
+                        border: Border.all(color: AppColors.structuralBorder),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: AppColors.cardShadowColor,
+                            blurRadius: 4,
+                            offset: Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        children: [
+                          const Icon(
+                            Icons.storefront_rounded,
+                            color: AppColors.primaryNavy,
+                            size: 24,
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            'Store',
+                            style: AppTypography.labelMd.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.primaryNavy,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: InkWell(
+                    onTap: () => context.push(AppRoutes.earnChips),
+                    borderRadius: AppRadii.roundedLg,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      decoration: BoxDecoration(
+                        color: AppColors.surface,
+                        borderRadius: AppRadii.roundedLg,
+                        border: Border.all(color: AppColors.structuralBorder),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: AppColors.cardShadowColor,
+                            blurRadius: 4,
+                            offset: Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        children: [
+                          const Icon(
+                            Icons.monetization_on_rounded,
+                            color: AppColors.softYellowDark,
+                            size: 24,
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            'Earn Chips',
+                            style: AppTypography.labelMd.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.primaryNavy,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: InkWell(
+                    onTap: () => context.push(AppRoutes.achievements),
+                    borderRadius: AppRadii.roundedLg,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      decoration: BoxDecoration(
+                        color: AppColors.surface,
+                        borderRadius: AppRadii.roundedLg,
+                        border: Border.all(color: AppColors.structuralBorder),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: AppColors.cardShadowColor,
+                            blurRadius: 4,
+                            offset: Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        children: [
+                          const Icon(
+                            Icons.military_tech_rounded,
+                            color: AppColors.primaryCoral,
+                            size: 24,
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            'Badges',
+                            style: AppTypography.labelMd.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.primaryNavy,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
