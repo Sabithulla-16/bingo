@@ -14,6 +14,7 @@ import '../../../core/widgets/secondary_button.dart';
 import '../../../core/widgets/status_badge.dart';
 import '../../../data/supabase/supabase_provider.dart';
 import '../../profile/domain/player_profile.dart';
+import '../../splash/presentation/widgets/splash_animated_board.dart';
 
 enum AuthMode { register, signIn, forgotPassword }
 
@@ -316,8 +317,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                 ),
                 const SizedBox(height: 18),
 
-                // Miniature 2D 5x5 Bingo Board (Numbers 01 - 25 strictly)
-                _buildMiniBoardPreview(),
+                // Animated 5x5 Bingo Board with Diagonal Strikethrough (matching Splash screen)
+                const SplashAnimatedBingoBoard(size: 240.0),
 
                 const SizedBox(height: 20),
 
@@ -649,10 +650,49 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                                   setState(() => _agreedToTerms = val ?? false),
                             ),
                             Expanded(
-                              child: Text(
-                                'I agree to the Terms of Service and Privacy Policy.',
-                                style: AppTypography.bodySm.copyWith(
-                                  fontSize: 12,
+                              child: Text.rich(
+                                TextSpan(
+                                  text: 'I agree to the ',
+                                  style: AppTypography.bodySm.copyWith(
+                                    fontSize: 12,
+                                  ),
+                                  children: [
+                                    WidgetSpan(
+                                      alignment: PlaceholderAlignment.middle,
+                                      child: GestureDetector(
+                                        onTap: () => _showTermsDialog(context),
+                                        child: Text(
+                                          'Terms of Service',
+                                          style: AppTypography.bodySm.copyWith(
+                                            fontSize: 12,
+                                            color: AppColors.primaryCoral,
+                                            fontWeight: FontWeight.bold,
+                                            decoration:
+                                                TextDecoration.underline,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    const TextSpan(text: ' and '),
+                                    WidgetSpan(
+                                      alignment: PlaceholderAlignment.middle,
+                                      child: GestureDetector(
+                                        onTap: () =>
+                                            _showPrivacyPolicyDialog(context),
+                                        child: Text(
+                                          'Privacy Policy',
+                                          style: AppTypography.bodySm.copyWith(
+                                            fontSize: 12,
+                                            color: AppColors.primaryCoral,
+                                            fontWeight: FontWeight.bold,
+                                            decoration:
+                                                TextDecoration.underline,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    const TextSpan(text: '.'),
+                                  ],
                                 ),
                               ),
                             ),
@@ -702,32 +742,51 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                           _resetInstructionsSent) ...[
                         const SizedBox(height: 14),
                         Container(
-                          padding: const EdgeInsets.all(12),
+                          padding: const EdgeInsets.all(14),
                           decoration: BoxDecoration(
                             color: AppColors.lightLavender,
                             borderRadius: AppRadii.roundedMd,
+                            border: Border.all(
+                              color: AppColors.primaryNavy.withAlpha(30),
+                            ),
                           ),
-                          child: Row(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Icon(
-                                Icons.mark_email_read,
-                                color: AppColors.primaryCoral,
-                                size: 20,
+                              Row(
+                                children: [
+                                  const Icon(
+                                    Icons.mark_email_read,
+                                    color: AppColors.primaryCoral,
+                                    size: 22,
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Text(
+                                    'Instructions Dispatched',
+                                    style: AppTypography.labelMd.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.primaryNavy,
+                                    ),
+                                  ),
+                                ],
                               ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Instructions Sent',
-                                      style: AppTypography.labelMd,
-                                    ),
-                                    Text(
-                                      'A reset link has been dispatched if this address is registered. Please check your inbox.',
-                                      style: AppTypography.bodySm,
-                                    ),
-                                  ],
+                              const SizedBox(height: 8),
+                              Text(
+                                'A password reset link was dispatched for ${_emailController.text.trim()}.',
+                                style: AppTypography.bodySm.copyWith(
+                                  color: AppColors.textPrimary,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                '• Check your Inbox and Spam / Junk folder.\n'
+                                '• Rate limit notice: Free Supabase tiers limit reset emails to 3 per hour. If you recently sent a request, please allow a few minutes.\n'
+                                '• If you used guest mode or need immediate access, tap "Continue as Guest" below.',
+                                style: AppTypography.bodySm.copyWith(
+                                  fontSize: 11,
+                                  color: AppColors.textSecondary,
+                                  height: 1.4,
                                 ),
                               ),
                             ],
@@ -822,78 +881,157 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     );
   }
 
-  /// Miniature 2D 5x5 preview board matching the Stitch auth screen
-  Widget _buildMiniBoardPreview() {
-    final previewMatrix = [
-      ['08', '21', '03', '17', '12'],
-      ['24', '05', '14', '01', '19'],
-      ['11', '23', '07', '16', '04'],
-      ['20', '02', '25', '09', '13'],
-      ['06', '18', '10', '22', '15'],
-    ];
-
-    return Container(
-      width: 240,
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: AppRadii.roundedLg,
-        border: Border.all(
-          color: AppColors.primaryNavy.withAlpha(20),
-          width: 1.5,
+  void _showTermsDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: AppRadii.roundedXl),
+        backgroundColor: AppColors.surface,
+        title: Row(
+          children: [
+            const Icon(Icons.gavel_rounded, color: AppColors.primaryCoral),
+            const SizedBox(width: 8),
+            Text('Terms of Service', style: AppTypography.headlineSm),
+          ],
         ),
-        boxShadow: const [
-          BoxShadow(
-            color: AppColors.cardShadowColor,
-            offset: Offset(0, 2),
-            blurRadius: 6,
+        content: SizedBox(
+          width: double.maxFinite,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Welcome to BINGO! By creating an account or playing as a guest, you agree to these Terms of Service.',
+                  style: AppTypography.bodySm,
+                ),
+                const SizedBox(height: 12),
+                _buildPolicySection(
+                  '1. Fair Play & Gameplay Integrity',
+                  'Players must play fairly without using automated scripts, third-party tampering, or exploiting synchronization latencies. All calls and line claims are verified by the game engine.',
+                ),
+                _buildPolicySection(
+                  '2. Virtual Chips & Rewards',
+                  'Chips are virtual game items with no cash or real-world monetary value. Chips cannot be traded, sold, or redeemed for currency and are used solely for in-game room stakes and friendly competition.',
+                ),
+                _buildPolicySection(
+                  '3. Multiplayer Rooms & Conduct',
+                  'Custom room hosts and players must maintain respectful conduct. Harassment, offensive usernames, or disruptive behavior may lead to temporary or permanent multiplayer suspension.',
+                ),
+                _buildPolicySection(
+                  '4. Account Responsibility',
+                  'You are responsible for maintaining the security of your login credentials and room codes. We are not liable for unauthorized access resulting from shared credentials.',
+                ),
+                _buildPolicySection(
+                  '5. Modifications & Updates',
+                  'We reserve the right to update gameplay rules, scoring algorithms, and terms of service to enhance multiplayer balance and player experience.',
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primaryNavy,
+              foregroundColor: AppColors.textLight,
+              shape: RoundedRectangleBorder(borderRadius: AppRadii.roundedMd),
+            ),
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('I Understand'),
           ),
         ],
       ),
+    );
+  }
+
+  void _showPrivacyPolicyDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: AppRadii.roundedXl),
+        backgroundColor: AppColors.surface,
+        title: Row(
+          children: [
+            const Icon(
+              Icons.privacy_tip_outlined,
+              color: AppColors.primaryCoral,
+            ),
+            const SizedBox(width: 8),
+            Text('Privacy Policy', style: AppTypography.headlineSm),
+          ],
+        ),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Your privacy is essential to us. This policy details how BINGO handles your information.',
+                  style: AppTypography.bodySm,
+                ),
+                const SizedBox(height: 12),
+                _buildPolicySection(
+                  '1. Information We Collect',
+                  '• Profile data: Display name, email address, chosen avatar icon and color.\n• Game stats: Matches played, victory count, current win streaks, and chip balances.\n• Session data: Real-time room presence and game board state.',
+                ),
+                _buildPolicySection(
+                  '2. Purpose of Collection',
+                  'We use this data to deliver real-time multiplayer gameplay, match leaderboards, player stats, and secure authentication.',
+                ),
+                _buildPolicySection(
+                  '3. Data Protection & Encryption',
+                  'User passwords and sensitive credentials are encrypted using industry-standard hashing. Match state and profile records are secured via Supabase Row-Level Security (RLS) policies.',
+                ),
+                _buildPolicySection(
+                  '4. Zero Third-Party Monetization',
+                  'We do not sell, rent, or trade your personal information, email address, or gameplay statistics to advertisers or third-party data aggregators.',
+                ),
+                _buildPolicySection(
+                  '5. Your Rights & Data Deletion',
+                  'You may modify your display name and avatar at any time in the Profile section, or request account and profile deletion by contacting support.',
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primaryNavy,
+              foregroundColor: AppColors.textLight,
+              shape: RoundedRectangleBorder(borderRadius: AppRadii.roundedMd),
+            ),
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPolicySection(String heading, String body) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10.0),
       child: Column(
-        children: previewMatrix.map((row) {
-          return Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: row.map((cellNum) {
-              Color bg = AppColors.surfaceContainerLow;
-              Color fg = AppColors.primaryNavy;
-              FontWeight weight = FontWeight.w600;
-
-              if (cellNum == '03') {
-                bg = AppColors.lightLavender;
-                fg = AppColors.primaryNavy;
-                weight = FontWeight.w800;
-              } else if (cellNum == '07') {
-                bg = AppColors.softYellow;
-                fg = AppColors.primaryNavy;
-                weight = FontWeight.w800;
-              } else if (cellNum == '25') {
-                bg = AppColors.primaryCoral;
-                fg = AppColors.textLight;
-                weight = FontWeight.w800;
-              }
-
-              return Container(
-                width: 40,
-                height: 40,
-                margin: const EdgeInsets.all(2),
-                decoration: BoxDecoration(
-                  color: bg,
-                  borderRadius: AppRadii.roundedSm,
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  cellNum,
-                  style: AppTypography.labelMd.copyWith(
-                    color: fg,
-                    fontWeight: weight,
-                    fontSize: 12,
-                  ),
-                ),
-              );
-            }).toList(),
-          );
-        }).toList(),
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            heading,
+            style: AppTypography.labelMd.copyWith(
+              fontWeight: FontWeight.w700,
+              color: AppColors.primaryNavy,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            body,
+            style: AppTypography.bodySm.copyWith(
+              color: AppColors.textSecondary,
+              height: 1.35,
+            ),
+          ),
+        ],
       ),
     );
   }

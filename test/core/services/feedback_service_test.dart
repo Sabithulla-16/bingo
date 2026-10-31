@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:bingo/core/services/feedback_service.dart';
@@ -22,6 +23,20 @@ class MockProfileRepoForFeedback implements ProfileRepository {
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  setUpAll(() {
+    const globalChannel = MethodChannel('xyz.luan/audioplayers.global');
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(globalChannel, (MethodCall call) async {
+          return 1;
+        });
+
+    const playerChannel = MethodChannel('xyz.luan/audioplayers');
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(playerChannel, (MethodCall call) async {
+          return 1;
+        });
+  });
 
   group('FeedbackService Tests', () {
     late ProviderContainer container;

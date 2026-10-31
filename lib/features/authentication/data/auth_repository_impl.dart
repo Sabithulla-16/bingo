@@ -220,12 +220,20 @@ class AuthRepositoryImpl implements AuthRepository {
   @override
   Future<void> sendPasswordReset(String email) async {
     final cleanEmail = email.trim();
-    if (_client == null) return;
+    if (_client == null) {
+      // Local development / mock fallback mode
+      return;
+    }
 
     try {
-      await _client.auth.resetPasswordForEmail(cleanEmail);
+      await _client.auth.resetPasswordForEmail(
+        cleanEmail,
+        redirectTo: 'bingo://auth/reset-password',
+      );
     } on sb.AuthException catch (e) {
       throw Exception(e.message);
+    } catch (e) {
+      throw Exception('Failed to send password reset email: $e');
     }
   }
 

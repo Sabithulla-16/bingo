@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../app/router/app_routes.dart';
@@ -10,6 +11,20 @@ import '../../../core/widgets/primary_button.dart';
 import '../../../core/widgets/responsive_scaffold.dart';
 import '../../../core/widgets/status_badge.dart';
 import '../data/multiplayer_repository_provider.dart';
+
+/// Text formatter ensuring all entered characters are upper-case.
+class UpperCaseTextFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    return TextEditingValue(
+      text: newValue.text.toUpperCase(),
+      selection: newValue.selection,
+    );
+  }
+}
 
 /// Join Room Screen (Stitch Screen ID: `d221a3db42c344d3b8e705d9a6614e29`)
 class JoinRoomScreen extends ConsumerStatefulWidget {
@@ -36,22 +51,22 @@ class _JoinRoomScreenState extends ConsumerState<JoinRoomScreen> {
     if (widget.initialCode != null && widget.initialCode!.isNotEmpty) {
       _codeController.text = widget.initialCode!.trim().toUpperCase();
     }
-    _codeController.addListener(() {
-      final text = _codeController.text.toUpperCase();
-      if (text != _codeController.text) {
-        _codeController.value = _codeController.value.copyWith(
-          text: text,
-          selection: TextSelection.collapsed(offset: text.length),
-        );
-      }
-      if (_errorMessage != null) {
-        setState(() => _errorMessage = null);
-      }
-    });
+    _codeController.addListener(_onCodeChanged);
+  }
+
+  void _onCodeChanged() {
+    if (mounted) {
+      setState(() {
+        if (_errorMessage != null) {
+          _errorMessage = null;
+        }
+      });
+    }
   }
 
   @override
   void dispose() {
+    _codeController.removeListener(_onCodeChanged);
     _codeController.dispose();
     _focusNode.dispose();
     super.dispose();
@@ -122,75 +137,100 @@ class _JoinRoomScreenState extends ConsumerState<JoinRoomScreen> {
             ),
             const SizedBox(height: 28),
 
-            // Segmented 6-box Code Input Display
-            GestureDetector(
-              onTap: () => _focusNode.requestFocus(),
-              child: Container(
-                color: Colors.transparent,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: List.generate(6, (index) {
-                    final char = index < currentCode.length
-                        ? currentCode[index]
-                        : '';
-                    final isCurrent = index == currentCode.length;
-
-                    return Container(
-                      width: 46,
-                      height: 56,
-                      margin: const EdgeInsets.symmetric(horizontal: 4),
-                      decoration: BoxDecoration(
-                        color: char.isNotEmpty
-                            ? AppColors.surface
-                            : AppColors.surfaceContainerLow,
-                        borderRadius: AppRadii.roundedLg,
-                        border: Border.all(
-                          color: isCurrent
-                              ? AppColors.primaryNavy
-                              : char.isNotEmpty
-                              ? AppColors.primaryNavy
-                              : AppColors.structuralBorder,
-                          width: isCurrent ? 2.5 : 1.5,
-                        ),
-                        boxShadow: char.isNotEmpty
-                            ? const [
-                                BoxShadow(
-                                  color: Color(0x0F20243A),
-                                  blurRadius: 4,
-                                  offset: Offset(0, 2),
-                                ),
-                              ]
-                            : null,
-                      ),
-                      alignment: Alignment.center,
-                      child: Text(
-                        char,
-                        style: AppTypography.headlineLgMobile.copyWith(
-                          color: AppColors.primaryNavy,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    );
-                  }),
-                ),
-              ),
-            ),
-
-            // Hidden text field managing native keyboard input
-            Opacity(
-              opacity: 0,
+            // Segmented 6-box Code Input Display with interactive text field overlay
+            Center(
               child: SizedBox(
-                height: 1,
-                child: TextField(
-                  controller: _codeController,
-                  focusNode: _focusNode,
-                  autofocus: true,
-                  maxLength: 6,
-                  textCapitalization: TextCapitalization.characters,
-                  keyboardType: TextInputType.text,
-                  onSubmitted: (val) {
-                    if (val.length == 6) _handleJoin(val);
-                  },
+                height: 56,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    // Visual 6-box display
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: List.generate(6, (index) {
+                        final char = index < currentCode.length
+                            ? currentCode[index]
+                            : '';
+                        final isCurrent = index == currentCode.length;
+
+                        return Container(
+                          width: 46,
+                          height: 56,
+                          margin: const EdgeInsets.symmetric(horizontal: 4),
+                          decoration: BoxDecoration(
+                            color: char.isNotEmpty
+                                ? AppColors.surface
+                                : AppColors.surfaceContainerLow,
+                            borderRadius: AppRadii.roundedLg,
+                            border: Border.all(
+                              color: isCurrent
+                                  ? AppColors.primaryNavy
+                                  : char.isNotEmpty
+                                  ? AppColors.primaryNavy
+                                  : AppColors.structuralBorder,
+                              width: isCurrent ? 2.5 : 1.5,
+                            ),
+                            boxShadow: char.isNotEmpty
+                                ? const [
+                                    BoxShadow(
+                                      color: Color(0x0F20243A),
+                                      blurRadius: 4,
+                                      offset: Offset(0, 2),
+                                    ),
+                                  ]
+                                : null,
+                          ),
+                          alignment: Alignment.center,
+                          child: Text(
+                            char,
+                            style: AppTypography.headlineLgMobile.copyWith(
+                              color: AppColors.primaryNavy,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        );
+                      }),
+                    ),
+
+                    // Transparent interactive TextField overlay capturing user taps & native keyboard input
+                    Positioned.fill(
+                      child: TextField(
+                        controller: _codeController,
+                        focusNode: _focusNode,
+                        autofocus: true,
+                        showCursor: false,
+                        maxLength: 6,
+                        keyboardType: TextInputType.text,
+                        textCapitalization: TextCapitalization.characters,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(
+                            RegExp(r'[a-zA-Z0-9]'),
+                          ),
+                          UpperCaseTextFormatter(),
+                        ],
+                        cursorColor: Colors.transparent,
+                        style: const TextStyle(
+                          color: Colors.transparent,
+                          fontSize: 1,
+                        ),
+                        decoration: const InputDecoration(
+                          counterText: '',
+                          fillColor: Colors.transparent,
+                          filled: true,
+                          border: InputBorder.none,
+                          enabledBorder: InputBorder.none,
+                          focusedBorder: InputBorder.none,
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                        onSubmitted: (val) {
+                          if (val.trim().length == 6) {
+                            _handleJoin(val.trim());
+                          }
+                        },
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),

@@ -60,7 +60,19 @@ void main() {
       expect(find.text('Enter Room Code'), findsOneWidget);
       expect(find.text('RECENT ROOMS'), findsOneWidget);
 
-      // Enter valid 6-char code
+      // Enter valid 6-char code with mixed letters and numbers
+      await tester.enterText(find.byType(TextField), 'ab12cd');
+      await tester.pumpAndSettle();
+
+      // Check characters are uppercase in individual box tiles
+      expect(find.text('A'), findsOneWidget);
+      expect(find.text('B'), findsOneWidget);
+      expect(find.text('1'), findsOneWidget);
+      expect(find.text('2'), findsOneWidget);
+      expect(find.text('C'), findsOneWidget);
+      expect(find.text('D'), findsOneWidget);
+
+      // Now enter existing room code
       await tester.enterText(find.byType(TextField), room.code);
       await tester.pumpAndSettle();
     },
