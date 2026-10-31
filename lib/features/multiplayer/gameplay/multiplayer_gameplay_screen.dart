@@ -150,8 +150,9 @@ class MultiplayerGameplayScreen extends ConsumerWidget {
                   _buildPrivateBoard(context, ref, state, notifier),
                   const SizedBox(height: 14),
 
-                  // Line Claiming Interface (Shown when one or more lines are completed)
-                  if (state.unclaimedCompletedLines.isNotEmpty) ...[
+                  // Line Claiming Interface (Shown only while match is actively in progress)
+                  if (state.unclaimedCompletedLines.isNotEmpty &&
+                      !state.isMatchOver) ...[
                     _buildLineClaimCard(ref, state, notifier),
                     const SizedBox(height: 14),
                   ],
@@ -701,7 +702,9 @@ class MultiplayerGameplayScreen extends ConsumerWidget {
               final number = state.userBoard.getNumberAtCoord(coord);
               final cellState = state.cellStateFor(number, coord);
               final canCall =
-                  state.isMyTurn && cellState == BingoCellState.available;
+                  state.isMyTurn &&
+                  cellState == BingoCellState.available &&
+                  !state.isMatchOver;
 
               return BingoCell(
                 number: number,
@@ -824,7 +827,7 @@ class MultiplayerGameplayScreen extends ConsumerWidget {
                       vertical: 8,
                     ),
                   ),
-                  onPressed: state.isClaiming
+                  onPressed: (state.isClaiming || state.isMatchOver)
                       ? null
                       : () {
                           notifier.claimLine(nextLine);

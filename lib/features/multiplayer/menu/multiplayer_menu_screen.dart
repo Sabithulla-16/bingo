@@ -24,6 +24,20 @@ class MultiplayerMenuScreen extends ConsumerWidget {
       appBar: AppBar(
         title: Text('Multiplayer', style: AppTypography.headlineSm),
         centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(
+            Icons.arrow_back_rounded,
+            color: AppColors.primaryNavy,
+          ),
+          tooltip: 'Back',
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go(AppRoutes.home);
+            }
+          },
+        ),
         actions: [
           if (profile != null)
             Padding(

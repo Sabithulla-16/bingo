@@ -56,8 +56,8 @@ class ErrorLogger {
       logPayload['technical_details'] = sanitizedDetails;
     }
     if (error.originalException != null) {
-      logPayload['exception_type'] =
-          error.originalException.runtimeType.toString();
+      logPayload['exception_type'] = error.originalException.runtimeType
+          .toString();
     }
 
     if (kDebugMode) {

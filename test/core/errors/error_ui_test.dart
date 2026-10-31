@@ -15,7 +15,8 @@ void main() {
 
       final error = AppError(
         code: AppErrorCode.networkUnavailable,
-        message: 'Unable to connect. Check your internet connection and try again.',
+        message:
+            'Unable to connect. Check your internet connection and try again.',
         recoveryActionLabel: 'RETRY',
         recoveryAction: () {
           recoveryTriggered = true;
@@ -44,7 +45,9 @@ void main() {
 
       expect(find.text('Notice'), findsOneWidget);
       expect(
-        find.text('Unable to connect. Check your internet connection and try again.'),
+        find.text(
+          'Unable to connect. Check your internet connection and try again.',
+        ),
         findsOneWidget,
       );
       expect(find.text('RETRY'), findsOneWidget);
@@ -125,20 +128,20 @@ void main() {
       expect(dismissed, isTrue);
     });
 
-    testWidgets('AppErrorBanner.connectionLost factory renders connection message', (
-      WidgetTester tester,
-    ) async {
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: AppErrorBanner.connectionLost(),
-          ),
-        ),
-      );
+    testWidgets(
+      'AppErrorBanner.connectionLost factory renders connection message',
+      (WidgetTester tester) async {
+        await tester.pumpWidget(
+          MaterialApp(home: Scaffold(body: AppErrorBanner.connectionLost())),
+        );
 
-      expect(find.text('Connection lost. Trying to reconnect...'), findsOneWidget);
-      expect(find.byIcon(Icons.wifi_off_rounded), findsOneWidget);
-    });
+        expect(
+          find.text('Connection lost. Trying to reconnect...'),
+          findsOneWidget,
+        );
+        expect(find.byIcon(Icons.wifi_off_rounded), findsOneWidget);
+      },
+    );
   });
 
   group('GlobalErrorBoundaryWidget Tests', () {

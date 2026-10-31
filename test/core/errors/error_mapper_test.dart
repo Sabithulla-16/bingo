@@ -20,26 +20,35 @@ void main() {
 
     group('Network & Connectivity Errors', () {
       test('maps SocketException to networkUnavailable', () {
-        const error = SocketException('OS Error: No address associated with hostname');
+        const error = SocketException(
+          'OS Error: No address associated with hostname',
+        );
         final mapped = ErrorMapper.map(error);
         expect(mapped.code, equals(AppErrorCode.networkUnavailable));
         expect(
           mapped.message,
-          equals('Unable to connect. Check your internet connection and try again.'),
+          equals(
+            'Unable to connect. Check your internet connection and try again.',
+          ),
         );
         expect(mapped.recoveryActionLabel, equals('RETRY'));
       });
 
-      test('maps ClientException with failed host lookup to networkUnavailable', () {
-        const error =
-            "ClientException with Socket Failed host lookup: 'pqkrqppxbnrjcgxvmogn.supabase.co' (OS Error: No address associated with hostname, errno = 7)";
-        final mapped = ErrorMapper.map(error);
-        expect(mapped.code, equals(AppErrorCode.networkUnavailable));
-        expect(
-          mapped.message,
-          equals('Unable to connect. Check your internet connection and try again.'),
-        );
-      });
+      test(
+        'maps ClientException with failed host lookup to networkUnavailable',
+        () {
+          const error =
+              "ClientException with Socket Failed host lookup: 'pqkrqppxbnrjcgxvmogn.supabase.co' (OS Error: No address associated with hostname, errno = 7)";
+          final mapped = ErrorMapper.map(error);
+          expect(mapped.code, equals(AppErrorCode.networkUnavailable));
+          expect(
+            mapped.message,
+            equals(
+              'Unable to connect. Check your internet connection and try again.',
+            ),
+          );
+        },
+      );
 
       test('maps TimeoutException to timeout error', () {
         final error = TimeoutException('Connection timed out after 30 seconds');
@@ -70,17 +79,23 @@ void main() {
         expect(mapped.code, equals(AppErrorCode.emailAlreadyRegistered));
         expect(
           mapped.message,
-          equals('An account with this email already exists. Try signing in instead.'),
+          equals(
+            'An account with this email already exists. Try signing in instead.',
+          ),
         );
       });
 
       test('maps weak password', () {
-        final error = sb.AuthException('Password should be at least 6 characters');
+        final error = sb.AuthException(
+          'Password should be at least 6 characters',
+        );
         final mapped = ErrorMapper.map(error);
         expect(mapped.code, equals(AppErrorCode.weakPassword));
         expect(
           mapped.message,
-          equals('Your password is too weak. Please choose a stronger password.'),
+          equals(
+            'Your password is too weak. Please choose a stronger password.',
+          ),
         );
       });
 
@@ -100,7 +115,9 @@ void main() {
         expect(mapped.code, equals(AppErrorCode.tooManyAttempts));
         expect(
           mapped.message,
-          equals('Too many attempts. Please wait a moment before trying again.'),
+          equals(
+            'Too many attempts. Please wait a moment before trying again.',
+          ),
         );
       });
 
@@ -181,7 +198,10 @@ void main() {
         const error = 'connection lost to multiplayer channel';
         final mapped = ErrorMapper.map(error);
         expect(mapped.code, equals(AppErrorCode.connectionLost));
-        expect(mapped.message, equals('Connection lost. Trying to reconnect...'));
+        expect(
+          mapped.message,
+          equals('Connection lost. Trying to reconnect...'),
+        );
       });
 
       test('maps player kicked or removed', () {

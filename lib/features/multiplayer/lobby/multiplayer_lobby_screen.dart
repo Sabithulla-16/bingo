@@ -50,7 +50,11 @@ class MultiplayerLobbyScreen extends ConsumerWidget {
           Navigator.of(ctx).pop();
           await ref.read(multiplayerLobbyProvider(roomId).notifier).leaveRoom();
           if (context.mounted) {
-            context.go(AppRoutes.multiplayerMenu);
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go(AppRoutes.multiplayerMenu);
+            }
           }
         },
       ),
@@ -88,7 +92,13 @@ class MultiplayerLobbyScreen extends ConsumerWidget {
               const SizedBox(height: 12),
               PrimaryButton(
                 label: 'Return to Multiplayer Menu',
-                onPressed: () => context.go(AppRoutes.multiplayerMenu),
+                onPressed: () {
+                  if (context.canPop()) {
+                    context.pop();
+                  } else {
+                    context.go(AppRoutes.multiplayerMenu);
+                  }
+                },
               ),
             ],
           ),

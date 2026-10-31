@@ -165,7 +165,9 @@ class SinglePlayerGameNotifier extends StateNotifier<SinglePlayerMatchState?> {
   void callNumber(int number) {
     final current = state;
     if (current == null) return;
-    if (current.winner != GameWinner.none) return;
+    if (current.winner != GameWinner.none || current.completedAt != null) {
+      return;
+    }
     if (!current.isPlayerTurn || current.isComputerThinking) return;
     if (current.isNumberCalled(number)) return;
 
@@ -173,12 +175,22 @@ class SinglePlayerGameNotifier extends StateNotifier<SinglePlayerMatchState?> {
   }
 
   /// Manually claims a completed line for the player.
+  /// Strictly rejected if the match has already concluded.
   void claimLine(String lineId) {
     final current = state;
     if (current == null) return;
+    // Reject any post-game claim attempts to preserve victory fairness
+    if (current.winner != GameWinner.none || current.completedAt != null) {
+      return;
+    }
 
     final updatedClaimed = current.playerEngine.claimLine(lineId);
     final hasBingo = updatedClaimed.length >= 5;
+
+    if (hasBingo) {
+      _computerTurnTimer?.cancel();
+      _botClaimTimer?.cancel();
+    }
 
     state = current.copyWith(
       playerClaimedLineIds: updatedClaimed,
@@ -188,12 +200,22 @@ class SinglePlayerGameNotifier extends StateNotifier<SinglePlayerMatchState?> {
   }
 
   /// Claims all currently eligible lines for the player.
+  /// Strictly rejected if the match has already concluded.
   void claimAllLines() {
     final current = state;
     if (current == null) return;
+    // Reject any post-game claim attempts to preserve victory fairness
+    if (current.winner != GameWinner.none || current.completedAt != null) {
+      return;
+    }
 
     final updatedClaimed = current.playerEngine.claimAllCompletedLines();
     final hasBingo = updatedClaimed.length >= 5;
+
+    if (hasBingo) {
+      _computerTurnTimer?.cancel();
+      _botClaimTimer?.cancel();
+    }
 
     state = current.copyWith(
       playerClaimedLineIds: updatedClaimed,
@@ -298,6 +320,8 @@ class SinglePlayerGameNotifier extends StateNotifier<SinglePlayerMatchState?> {
     );
 
     if (hasBingo) {
+      _computerTurnTimer?.cancel();
+      _botClaimTimer?.cancel();
       return;
     }
 

@@ -62,6 +62,15 @@ class MultiplayerGameState {
 
   bool get hasWon => myLinesClaimedCount >= 5;
 
+  /// Authoritative check if the round has ended or a winner has emerged.
+  bool get isMatchOver {
+    if (game == null) return false;
+    return game!.status == MultiplayerGameStatus.completed ||
+        game!.winnerUserId != null ||
+        hasWon ||
+        players.any((p) => p.isWinner || p.linesClaimed >= 5);
+  }
+
   List<bool> get letterProgress {
     return [
       myLinesClaimedCount >= 1,
@@ -293,6 +302,7 @@ class MultiplayerGameNotifier extends StateNotifier<MultiplayerGameState> {
   }
 
   Future<void> callNumber(int number) async {
+    if (state.isMatchOver) return;
     if (!state.isMyTurn || state.isCalling || state.game == null) return;
     if (state.game!.isNumberCalled(number)) return;
 
@@ -312,6 +322,7 @@ class MultiplayerGameNotifier extends StateNotifier<MultiplayerGameState> {
   }
 
   Future<void> claimLine(WinningLine line) async {
+    if (state.isMatchOver) return;
     if (state.isClaiming || state.game == null) return;
     if (state.claimedLines.contains(line)) return;
 

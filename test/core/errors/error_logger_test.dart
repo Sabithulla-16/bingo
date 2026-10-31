@@ -14,7 +14,10 @@ void main() {
       final sanitized = ErrorLogger.sanitize(rawText);
 
       expect(sanitized, isNot(contains('SuperSecretP@ss123')));
-      expect(sanitized, isNot(contains('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9')));
+      expect(
+        sanitized,
+        isNot(contains('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9')),
+      );
       expect(sanitized, isNot(contains('sb_test_key_999')));
       expect(sanitized, contains('REDACTED'));
     });
@@ -32,13 +35,17 @@ void main() {
     test('log records AppError safely without throwing', () {
       final error = AppError(
         code: AppErrorCode.networkUnavailable,
-        message: 'Unable to connect. Check your internet connection and try again.',
+        message:
+            'Unable to connect. Check your internet connection and try again.',
         technicalDetails:
             'SocketException: Failed host lookup for supabase.co (password=12345)',
         recoveryActionLabel: 'RETRY',
       );
 
-      expect(() => ErrorLogger.log(error, operation: 'test_op'), returnsNormally);
+      expect(
+        () => ErrorLogger.log(error, operation: 'test_op'),
+        returnsNormally,
+      );
     });
 
     test('logUnhandled sanitizes raw exception string before recording', () {

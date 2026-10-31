@@ -69,17 +69,19 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.multiplayerMenu,
         builder: (context, state) => const MultiplayerMenuScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.createRoom,
-        builder: (context, state) => const CreateRoomScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.joinRoom,
-        builder: (context, state) {
-          final code = state.uri.queryParameters['code'];
-          return JoinRoomScreen(initialCode: code);
-        },
+        routes: [
+          GoRoute(
+            path: 'create-room',
+            builder: (context, state) => const CreateRoomScreen(),
+          ),
+          GoRoute(
+            path: 'join-room',
+            builder: (context, state) {
+              final code = state.uri.queryParameters['code'];
+              return JoinRoomScreen(initialCode: code);
+            },
+          ),
+        ],
       ),
       GoRoute(
         path: '/join/:code',

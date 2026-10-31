@@ -535,8 +535,10 @@ class _SinglePlayerGameplayScreenState
 
             const SizedBox(height: 12),
 
-            // Line Claiming Action Panel
-            if (unclaimedLines.isNotEmpty) ...[
+            // Line Claiming Action Panel (Only active during an ongoing match)
+            if (unclaimedLines.isNotEmpty &&
+                !hasWinner &&
+                gameState.completedAt == null) ...[
               AppCard(
                 padding: const EdgeInsets.all(14),
                 child: Column(

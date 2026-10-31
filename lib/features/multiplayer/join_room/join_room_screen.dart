@@ -113,6 +113,20 @@ class _JoinRoomScreenState extends ConsumerState<JoinRoomScreen> {
       appBar: AppBar(
         title: Text('Join Room', style: AppTypography.headlineSm),
         centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(
+            Icons.arrow_back_rounded,
+            color: AppColors.primaryNavy,
+          ),
+          tooltip: 'Back to Multiplayer',
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go(AppRoutes.multiplayerMenu);
+            }
+          },
+        ),
       ),
       body: Padding(
         padding: const EdgeInsets.symmetric(vertical: 16.0),

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math';
+import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../authentication/domain/auth_repository.dart';
@@ -27,6 +28,13 @@ class MultiplayerRepositoryImpl implements MultiplayerRepository {
   final Map<String, StreamController<List<MultiplayerPlayerState>>>
   _gamePlayersControllers = {};
   final Map<String, List<Map<String, dynamic>>> _localRoomHistory = {};
+
+  @visibleForTesting
+  Map<String, MultiplayerGame> get localGamesForTesting => _localGames;
+
+  @visibleForTesting
+  Map<String, List<MultiplayerPlayerState>> get localGamePlayersForTesting =>
+      _localGamePlayers;
 
   MultiplayerRepositoryImpl({
     SupabaseClient? supabaseClient,
@@ -617,6 +625,14 @@ class MultiplayerRepositoryImpl implements MultiplayerRepository {
   }) async {
     final userId = _authRepository.currentUserId ?? 'current_user';
 
+    // Immediate authoritative freeze check: Reject if game is already completed or has a winner
+    final cachedGame = _localGames[gameId];
+    if (cachedGame != null &&
+        (cachedGame.status == MultiplayerGameStatus.completed ||
+            cachedGame.winnerUserId != null)) {
+      return false;
+    }
+
     if (_isOnline) {
       try {
         final result = await _supabaseClient!.rpc(
@@ -635,6 +651,10 @@ class MultiplayerRepositoryImpl implements MultiplayerRepository {
     final game = _localGames[gameId];
     final players = _localGamePlayers[gameId];
     if (game == null || players == null) return false;
+    if (game.status != MultiplayerGameStatus.inProgress ||
+        game.winnerUserId != null) {
+      return false;
+    }
 
     final index = players.indexWhere((p) => p.userId == userId);
     if (index == -1) return false;

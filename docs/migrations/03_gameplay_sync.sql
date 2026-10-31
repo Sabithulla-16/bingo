@@ -213,9 +213,9 @@ DECLARE
     v_new_lines INTEGER;
     v_has_won BOOLEAN := FALSE;
 BEGIN
-    SELECT * INTO v_game FROM public.games WHERE id = p_game_id;
-    IF v_game.status != 'in_progress' THEN
-        RAISE EXCEPTION 'Game not active';
+    SELECT * INTO v_game FROM public.games WHERE id = p_game_id FOR UPDATE;
+    IF v_game.status != 'in_progress' OR v_game.winner_user_id IS NOT NULL THEN
+        RAISE EXCEPTION 'Game not active or already completed';
     END IF;
 
     SELECT * INTO v_gps FROM public.game_player_states
