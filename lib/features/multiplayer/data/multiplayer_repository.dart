@@ -78,4 +78,30 @@ abstract class MultiplayerRepository {
     required String gameId,
     int extensionSeconds = 30,
   });
+
+  // --- RESULTS, LEADERBOARD, AND MULTI-ROUND METHODS ---
+
+  /// Concludes a round, logs outcomes to history, and updates player statistics.
+  Future<void> finishRound({
+    required String gameId,
+    required String roomId,
+    required String? winnerId,
+    required String winnerName,
+    required int totalCalls,
+    required List<Map<String, dynamic>> playerOutcomes,
+    int? roundNumber,
+  });
+
+  /// Retrieves chronological or reverse-chronological match history records for a room.
+  Future<List<Map<String, dynamic>>> getRoomMatchHistory(String roomId);
+
+  /// Computes cumulative session standings with tie-breaker resolution for a room.
+  Future<List<Map<String, dynamic>>> getRoomLeaderboard(String roomId);
+
+  /// Advances room and game to the next round, resetting player boards and timers.
+  Future<void> startNextRound({
+    required String gameId,
+    required String roomId,
+    required String hostId,
+  });
 }

@@ -62,6 +62,8 @@ class MultiplayerGame {
   int? get lastCalledNumber =>
       calledNumbers.isNotEmpty ? calledNumbers.last : null;
 
+  String? get winnerId => winnerUserId;
+
   bool isNumberCalled(int number) => calledNumbers.contains(number);
 
   MultiplayerGame copyWith({
@@ -74,6 +76,7 @@ class MultiplayerGame {
     List<int>? calledNumbers,
     int? roundNumber,
     String? winnerUserId,
+    String? winnerId,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -86,7 +89,7 @@ class MultiplayerGame {
       turnDeadline: turnDeadline ?? this.turnDeadline,
       calledNumbers: calledNumbers ?? this.calledNumbers,
       roundNumber: roundNumber ?? this.roundNumber,
-      winnerUserId: winnerUserId ?? this.winnerUserId,
+      winnerUserId: winnerId ?? winnerUserId ?? this.winnerUserId,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

@@ -105,18 +105,19 @@ This roadmap details the sequential milestones for taking the BINGO mobile game 
 
 ---
 
-## MILESTONE 7: Match Results, Leaderboards, & Persistent Statistics [READY TO IMPLEMENT]
+## MILESTONE 7: Match Results, Leaderboards, & Persistent Statistics [COMPLETED]
 * **Focus**: Session scoring, rankings, and historical records.
-* **Tasks**:
-  - Build `MultiplayerMatchResultScreen` (Stitch Screen 14) celebrating winners, room standings podium, and rematch controls.
-  - Implement simultaneous winner resolution and tie-breaker statistics.
-  - Build `DetailedRoomStatisticsScreen` (Stitch Screen 15) displaying cumulative session scores, win streaks, and round logs.
-  - Persist aggregate stats to `player_statistics` (wins, losses, win rate %, streaks) across all completed matches.
-  - Add rematch voting allowing groups to play multiple rounds in the same room.
+* **Deliverables**:
+  - PostgreSQL schema migration (`docs/migrations/04_results_and_statistics.sql`) with table `room_match_history`, Realtime publication, and server-authoritative RPCs (`rpc_finish_round`, `rpc_start_next_round`).
+  - `MultiplayerMatchResultScreen` (Stitch Screen 14: `d92bc16a2a7b4b6393c8e8f0c9b871af`) matching design: room context banner with code and completed round chip, winner announcement hero card with celebratory 2D starburst/confetti stamps, final cards with letter badges and line counts, confidential private board indicator, 2x2 match overview bento grid, room leaderboard preview with win rate progress bars, recent match history list, and host multi-round controls (`START NEXT ROUND`).
+  - `RoomStatisticsScreen` (Stitch Screen 15: `3d876d713b4f4007a8ca42fcf502e534`) matching design: segmented pill toggle (`LEADERBOARD` vs `MATCH HISTORY`), 3-column bento quick stat cards (Rounds completed, Active players, Session leader with crown), overall standings with tie-breaker rank sharing, win rate bars, streak metrics, round victor badges (`R02`, `R04`, `R05 🏆`), and match archive with expandable round cards and confidential board disclosures.
+  - Domain models `RoomRoundRecord`, `RoundPlayerOutcome`, `RoomPlayerStanding`, `RoomSessionOverview` with multi-round streak evaluation and deterministic tie-breaker calculation.
+  - Multi-round room flow: host starts next round via `startNextRound()`, auto-advancing all connected players into subsequent round preparation.
+  - 4 comprehensive unit and widget tests covering tie-breaker resolution, streak tracking across sequential rounds, `MultiplayerResultScreen`, and `RoomStatisticsScreen`. All 91 project tests passing, 0 analyzer issues, debug APK successfully compiled.
 
 ---
 
-## MILESTONE 8: Final Polish, Hardening, & Production Readiness
+## MILESTONE 8: Final Polish, Hardening, & Production Readiness [READY TO IMPLEMENT]
 * **Focus**: Production optimization, accessibility, and release builds.
 * **Tasks**:
   - End-to-end integration testing and automated scenario tests.

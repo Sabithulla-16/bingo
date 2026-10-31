@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math';
+import 'package:uuid/uuid.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../authentication/domain/auth_repository.dart';
 import '../../profile/domain/player_profile.dart';
@@ -23,6 +24,7 @@ class MultiplayerRepositoryImpl implements MultiplayerRepository {
   final Map<String, List<MultiplayerPlayerState>> _localGamePlayers = {};
   final Map<String, StreamController<MultiplayerGame>> _gameControllers = {};
   final Map<String, StreamController<List<MultiplayerPlayerState>>> _gamePlayersControllers = {};
+  final Map<String, List<Map<String, dynamic>>> _localRoomHistory = {};
 
   MultiplayerRepositoryImpl({
     SupabaseClient? supabaseClient,
@@ -664,6 +666,255 @@ class MultiplayerRepositoryImpl implements MultiplayerRepository {
         updatedAt: DateTime.now(),
       );
       _emitGameUpdate(gameId);
+    }
+  }
+
+  @override
+  Future<void> finishRound({
+    required String gameId,
+    required String roomId,
+    required String? winnerId,
+    required String winnerName,
+    required int totalCalls,
+    required List<Map<String, dynamic>> playerOutcomes,
+    int? roundNumber,
+  }) async {
+    final game = _localGames[gameId];
+    final round = roundNumber ??
+        game?.roundNumber ??
+        ((_localRoomHistory[roomId]?.length ?? 0) + 1);
+
+    final historyRecord = <String, dynamic>{
+      'id': Uuid().v4(),
+      'room_id': roomId,
+      'round_number': round,
+      'winner_id': winnerId,
+      'winner_name': winnerName,
+      'total_calls': totalCalls,
+      'player_count': playerOutcomes.length,
+      'player_outcomes': playerOutcomes,
+      'finished_at': DateTime.now().toIso8601String(),
+    };
+
+    if (_isOnline) {
+      try {
+        await _supabaseClient!.rpc(
+          'rpc_finish_round',
+          params: {
+            'p_game_id': gameId,
+            'p_room_id': roomId,
+            'p_winner_id': winnerId,
+            'p_winner_name': winnerName,
+            'p_total_calls': totalCalls,
+            'p_player_outcomes': playerOutcomes,
+          },
+        );
+      } catch (_) {
+        // Fall back to local store
+      }
+    }
+
+    _localRoomHistory.putIfAbsent(roomId, () => []).add(historyRecord);
+
+    if (game != null) {
+      _localGames[gameId] = game.copyWith(
+        status: MultiplayerGameStatus.completed,
+        winnerId: winnerId,
+        updatedAt: DateTime.now(),
+      );
+      _emitGameUpdate(gameId);
+    }
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> getRoomMatchHistory(String roomId) async {
+    if (_isOnline) {
+      try {
+        final res = await _supabaseClient!
+            .from('room_match_history')
+            .select('*')
+            .eq('room_id', roomId)
+            .order('round_number', ascending: false);
+        return List<Map<String, dynamic>>.from(res as List);
+      } catch (_) {
+        // Fall back to local store
+      }
+    }
+
+    final list = _localRoomHistory[roomId] ?? [];
+    final reversed = List<Map<String, dynamic>>.from(list);
+    reversed.sort((a, b) => (b['round_number'] as int? ?? 0).compareTo(a['round_number'] as int? ?? 0));
+    return reversed;
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> getRoomLeaderboard(String roomId) async {
+    final history = await getRoomMatchHistory(roomId);
+    final roomPlayers = _localPlayers[roomId] ?? [];
+    final currentUid = _authRepository.currentUserId ?? '';
+
+    // Chronological order for streak calculation
+    final chronological = List<Map<String, dynamic>>.from(history)
+      ..sort((a, b) => (a['round_number'] as int? ?? 0).compareTo(b['round_number'] as int? ?? 0));
+
+    final Map<String, Map<String, dynamic>> playerStats = {};
+
+    // Seed from current participants
+    for (final p in roomPlayers) {
+      playerStats[p.userId] = {
+        'user_id': p.userId,
+        'display_name': p.displayName,
+        'avatar_color_hex': p.avatarColorHex,
+        'is_host': p.isHost,
+        'is_you': p.userId == currentUid,
+        'rounds_played': 0,
+        'rounds_won': 0,
+        'draws': 0,
+        'losses': 0,
+        'win_rate': 0.0,
+        'current_streak': 0,
+        'best_streak': 0,
+        'last_result': '',
+        'won_rounds': <int>[],
+      };
+    }
+
+    for (final round in chronological) {
+      final roundNum = round['round_number'] as int? ?? 1;
+      final winnerId = round['winner_id'] as String?;
+      final outcomes = (round['player_outcomes'] as List<dynamic>?) ?? [];
+
+      for (final raw in outcomes) {
+        final outcome = raw as Map<String, dynamic>;
+        final uid = outcome['user_id'] as String? ?? '';
+        final isWinner = (winnerId != null && winnerId == uid) ||
+            (outcome['is_winner'] as bool? ?? false);
+
+        final stat = playerStats.putIfAbsent(
+          uid,
+          () => {
+            'user_id': uid,
+            'display_name': outcome['display_name'] as String? ?? 'Player',
+            'avatar_color_hex': outcome['avatar_color_hex'] as String? ?? '#FC695C',
+            'is_host': outcome['is_host'] as bool? ?? false,
+            'is_you': uid == currentUid,
+            'rounds_played': 0,
+            'rounds_won': 0,
+            'draws': 0,
+            'losses': 0,
+            'win_rate': 0.0,
+            'current_streak': 0,
+            'best_streak': 0,
+            'last_result': '',
+            'won_rounds': <int>[],
+          },
+        );
+
+        stat['rounds_played'] = (stat['rounds_played'] as int) + 1;
+        if (isWinner) {
+          stat['rounds_won'] = (stat['rounds_won'] as int) + 1;
+          (stat['won_rounds'] as List<int>).add(roundNum);
+          final currStreak = (stat['current_streak'] as int) + 1;
+          stat['current_streak'] = currStreak;
+          final bestStreak = stat['best_streak'] as int;
+          if (currStreak > bestStreak) stat['best_streak'] = currStreak;
+          stat['last_result'] = 'Winner R${roundNum.toString().padLeft(2, '0')} ⭐';
+        } else {
+          stat['losses'] = (stat['losses'] as int) + 1;
+          stat['current_streak'] = 0;
+          stat['last_result'] = 'Defeat (R${roundNum.toString().padLeft(2, '0')})';
+        }
+
+        final played = stat['rounds_played'] as int;
+        final won = stat['rounds_won'] as int;
+        stat['win_rate'] = played > 0 ? ((won / played) * 100.0) : 0.0;
+      }
+    }
+
+    final list = playerStats.values.toList();
+
+    // Sort by wins desc, win rate desc, best streak desc
+    list.sort((a, b) {
+      final winComp = (b['rounds_won'] as int).compareTo(a['rounds_won'] as int);
+      if (winComp != 0) return winComp;
+      final rateComp = (b['win_rate'] as double).compareTo(a['win_rate'] as double);
+      if (rateComp != 0) return rateComp;
+      return (b['best_streak'] as int).compareTo(a['best_streak'] as int);
+    });
+
+    // Assign rank with tie-breaker sharing
+    int currentRank = 1;
+    for (int i = 0; i < list.length; i++) {
+      if (i > 0) {
+        final prev = list[i - 1];
+        final curr = list[i];
+        final isTied = curr['rounds_won'] == prev['rounds_won'] &&
+            (curr['win_rate'] as double).toStringAsFixed(1) ==
+                (prev['win_rate'] as double).toStringAsFixed(1) &&
+            curr['best_streak'] == prev['best_streak'];
+        if (!isTied) {
+          currentRank = i + 1;
+        }
+      }
+      list[i]['rank'] = currentRank;
+    }
+
+    return list;
+  }
+
+  @override
+  Future<void> startNextRound({
+    required String gameId,
+    required String roomId,
+    required String hostId,
+  }) async {
+    if (_isOnline) {
+      try {
+        await _supabaseClient!.rpc(
+          'rpc_start_next_round',
+          params: {
+            'p_game_id': gameId,
+            'p_room_id': roomId,
+            'p_host_id': hostId,
+          },
+        );
+      } catch (_) {
+        // Fall back to local store
+      }
+    }
+
+    final game = _localGames[gameId];
+    final room = _localRooms[roomId];
+    final prepSeconds = room?.prepTimeSeconds ?? 45;
+
+    if (game != null) {
+      final nextRound = game.roundNumber + 1;
+      _localGames[gameId] = game.copyWith(
+        roundNumber: nextRound,
+        status: MultiplayerGameStatus.preparing,
+        prepDeadline: DateTime.now().add(Duration(seconds: prepSeconds)),
+        calledNumbers: const [],
+        winnerId: null,
+        currentTurnUserId: null,
+        turnDeadline: null,
+        updatedAt: DateTime.now(),
+      );
+      _emitGameUpdate(gameId);
+    }
+
+    final players = _localGamePlayers[gameId];
+    if (players != null) {
+      _localGamePlayers[gameId] = players
+          .map<MultiplayerPlayerState>(
+            (p) => p.copyWith(
+              isBoardConfirmed: false,
+              linesClaimed: 0,
+              claimedLineTypes: const [],
+              boardNumbers: const [],
+            ),
+          )
+          .toList();
+      _emitGamePlayersUpdate(gameId);
     }
   }
 
