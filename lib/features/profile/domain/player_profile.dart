@@ -20,6 +20,9 @@ class PlayerProfile {
     required this.updatedAt,
   });
 
+  /// Indicates whether this profile is an anonymous local guest rather than a registered account.
+  bool get isGuest => id.startsWith('guest_') || email == 'guest@bingo.app';
+
   String get shortPlayerId {
     if (id.length <= 8) return '#${id.toUpperCase()}';
     final cleanId = id.replaceAll('-', '').toUpperCase();

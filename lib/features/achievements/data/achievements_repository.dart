@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/errors/error_logger.dart';
 import '../../../data/supabase/supabase_provider.dart';
 import '../../authentication/domain/auth_repository.dart';
+import '../../profile/domain/player_career_stats.dart';
 import '../../profile/domain/profile_repository.dart';
 import '../domain/achievement.dart';
 
@@ -13,6 +14,11 @@ abstract class AchievementsRepository {
   Future<List<Achievement>> getAchievements();
   Future<int> claimAchievement(String achievementId);
   Future<void> updateProgress(String achievementId, int newProgress);
+  Future<void> evaluateFromStats(
+    PlayerCareerStats stats, {
+    required bool isMultiplayer,
+    required bool isVictory,
+  });
   Stream<List<Achievement>> watchAchievements();
 }
 
@@ -26,6 +32,8 @@ class AchievementsRepositoryImpl implements AchievementsRepository {
   final _achievementsController =
       StreamController<List<Achievement>>.broadcast();
   List<Achievement> _cached = Achievement.standardList;
+  RealtimeChannel? _achievementsChannel;
+  StreamSubscription<PlayerCareerStats>? _statsSub;
 
   AchievementsRepositoryImpl({
     SupabaseClient? supabase,
@@ -35,6 +43,35 @@ class AchievementsRepositoryImpl implements AchievementsRepository {
        _authRepo = authRepo,
        _profileRepo = profileRepo {
     _loadState();
+    _subscribeRealtime();
+    _statsSub = _profileRepo.watchCareerStats(_userId).listen((stats) {
+      evaluateFromStats(stats, isMultiplayer: true, isVictory: stats.wins > 0);
+    });
+  }
+
+  void _subscribeRealtime() {
+    if (_isOnline && _achievementsChannel == null) {
+      try {
+        final channel = _supabase!.channel('public:player_achievements:$_userId');
+        channel.onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'player_achievements',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'user_id',
+            value: _userId,
+          ),
+          callback: (payload) async {
+            await _loadState();
+          },
+        );
+        channel.subscribe();
+        _achievementsChannel = channel;
+      } catch (e, st) {
+        ErrorLogger.logUnhandled(e, st, source: 'Achievements_subscribeRealtime');
+      }
+    }
   }
 
   String get _userId => _authRepo.currentUserId ?? 'guest';
@@ -73,7 +110,24 @@ class AchievementsRepositoryImpl implements AchievementsRepository {
       if (localRaw != null) {
         final decoded = jsonDecode(localRaw) as Map<String, dynamic>;
         decoded.forEach((key, val) {
-          mapState[key] = Map<String, dynamic>.from(val as Map);
+          final localData = Map<String, dynamic>.from(val as Map);
+          if (mapState.containsKey(key)) {
+            final serverData = mapState[key]!;
+            final isClaimed = (serverData['is_claimed'] == true) ||
+                (localData['is_claimed'] == true);
+            final serverProg = (serverData['progress'] as num?)?.toInt() ?? 0;
+            final localProg = (localData['progress'] as num?)?.toInt() ?? 0;
+            final isUnlocked = isClaimed ||
+                (serverData['is_unlocked'] == true) ||
+                (localData['is_unlocked'] == true);
+            mapState[key] = {
+              'progress': serverProg > localProg ? serverProg : localProg,
+              'is_unlocked': isUnlocked,
+              'is_claimed': isClaimed,
+            };
+          } else {
+            mapState[key] = localData;
+          }
         });
       }
 
@@ -105,8 +159,14 @@ class AchievementsRepositoryImpl implements AchievementsRepository {
   }
 
   @override
-  Stream<List<Achievement>> watchAchievements() =>
-      _achievementsController.stream;
+  Stream<List<Achievement>> watchAchievements() {
+    scheduleMicrotask(() {
+      if (!_achievementsController.isClosed) {
+        _achievementsController.add(Achievement.sortList(_cached));
+      }
+    });
+    return _achievementsController.stream;
+  }
 
   @override
   Future<List<Achievement>> getAchievements() async {
@@ -143,14 +203,44 @@ class AchievementsRepositoryImpl implements AchievementsRepository {
         );
       } catch (e, st) {
         ErrorLogger.logUnhandled(e, st, source: 'claimAchievement_supabase');
+        final errorMsg = e.toString().toLowerCase();
+        if (errorMsg.contains('already claimed') ||
+            errorMsg.contains('duplicate')) {
+          _cached = _cached.map((a) {
+            if (a.id == achievementId) {
+              return a.copyWith(status: AchievementStatus.claimed);
+            }
+            return a;
+          }).toList();
+          _achievementsController.add(Achievement.sortList(_cached));
+          final prefs = await SharedPreferences.getInstance();
+          final localRaw = prefs.getString('${_prefAchievementsKey}_$_userId');
+          final Map<String, dynamic> stateMap = localRaw != null
+              ? Map<String, dynamic>.from(jsonDecode(localRaw) as Map)
+              : {};
+          stateMap[achievementId] = {
+            'progress': item.target,
+            'is_unlocked': true,
+            'is_claimed': true,
+          };
+          await prefs.setString(
+            '${_prefAchievementsKey}_$_userId',
+            jsonEncode(stateMap),
+          );
+          return reward;
+        }
+        rethrow;
       }
     }
 
-    // Credit profile chips
-    final profile = await _profileRepo.getProfile(_userId);
-    if (profile != null) {
-      final updatedChips = profile.chips + reward;
-      await _profileRepo.upsertProfile(profile.copyWith(chips: updatedChips));
+    // Credit profile chips locally ONLY if offline.
+    // When online, rpc_claim_achievement atomically credited chips in Supabase.
+    if (!_isOnline) {
+      final profile = await _profileRepo.getProfile(_userId);
+      if (profile != null) {
+        final updatedChips = profile.chips + reward;
+        await _profileRepo.upsertProfile(profile.copyWith(chips: updatedChips));
+      }
     }
 
     // Save locally
@@ -191,15 +281,19 @@ class AchievementsRepositoryImpl implements AchievementsRepository {
 
     if (item.status.isClaimed) return;
 
+    // Progress is monotonically non-decreasing
+    final effectiveProgress =
+        newProgress > item.current ? newProgress : item.current;
+
     AchievementStatus newStatus = item.status;
-    if (newProgress >= item.target) {
+    if (effectiveProgress >= item.target) {
       newStatus = AchievementStatus.ready;
-    } else if (newProgress > 0) {
+    } else if (effectiveProgress > 0) {
       newStatus = AchievementStatus.inProgress;
     }
 
     final updated = item.copyWith(
-      current: newProgress.clamp(0, item.target),
+      current: effectiveProgress.clamp(0, item.target),
       status: newStatus,
     );
 
@@ -212,15 +306,68 @@ class AchievementsRepositoryImpl implements AchievementsRepository {
         ? Map<String, dynamic>.from(jsonDecode(localRaw) as Map)
         : {};
 
+    final existing = stateMap[achievementId] as Map<String, dynamic>?;
+    final bool wasClaimed = existing?['is_claimed'] as bool? ?? false;
+
     stateMap[achievementId] = {
       'progress': updated.current,
-      'is_unlocked': updated.status.isReady,
-      'is_claimed': false,
+      'is_unlocked': wasClaimed || updated.status.isReady,
+      'is_claimed': wasClaimed,
     };
     await prefs.setString(
       '${_prefAchievementsKey}_$_userId',
       jsonEncode(stateMap),
     );
+
+    if (_isOnline) {
+      try {
+        await _supabase!.from('player_achievements').upsert({
+          'user_id': _userId,
+          'achievement_id': achievementId,
+          'progress': updated.current,
+          'is_unlocked': wasClaimed || updated.status.isReady,
+          'is_claimed': wasClaimed,
+          'updated_at': DateTime.now().toIso8601String(),
+        });
+      } catch (e, st) {
+        ErrorLogger.logUnhandled(e, st, source: 'updateProgress_supabase');
+      }
+    }
+  }
+
+  @override
+  Future<void> evaluateFromStats(
+    PlayerCareerStats stats, {
+    required bool isMultiplayer,
+    required bool isVictory,
+  }) async {
+    if (stats.totalMatches >= 1) {
+      await updateProgress('card-first-steps', 1);
+      await updateProgress('card-getting-started', stats.totalMatches);
+      await updateProgress('card-number-master', stats.totalMatches);
+      if (isMultiplayer) {
+        await updateProgress('card-social-player', 1);
+        await updateProgress('card-room-regular', stats.totalMatches);
+      }
+    }
+    if (stats.wins >= 1) {
+      await updateProgress('card-first-bingo', 1);
+      await updateProgress('card-bingo-champion', stats.wins);
+      if (isMultiplayer && isVictory) {
+        await updateProgress('card-room-champion', stats.wins);
+      }
+    }
+
+    final streak =
+        stats.bestStreak > 0 ? stats.bestStreak : stats.currentStreak;
+    if (streak > 0) {
+      await updateProgress('card-winning-streak', streak);
+    }
+  }
+  void dispose() {
+    _statsSub?.cancel();
+    _achievementsChannel?.unsubscribe();
+    _achievementsController.close();
   }
 }
 
@@ -229,14 +376,17 @@ final achievementsRepositoryProvider = Provider<AchievementsRepository>((ref) {
   final authRepo = ref.watch(authRepositoryProvider);
   final profileRepo = ref.watch(profileRepositoryProvider);
 
-  return AchievementsRepositoryImpl(
+  final repo = AchievementsRepositoryImpl(
     supabase: supabase,
     authRepo: authRepo,
     profileRepo: profileRepo,
   );
+  ref.onDispose(() => repo.dispose());
+  return repo;
 });
 
-final achievementsListProvider = StreamProvider<List<Achievement>>((ref) {
+final achievementsListProvider = StreamProvider<List<Achievement>>((ref) async* {
   final repo = ref.watch(achievementsRepositoryProvider);
-  return repo.watchAchievements();
+  yield await repo.getAchievements();
+  yield* repo.watchAchievements();
 });

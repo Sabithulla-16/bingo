@@ -9,6 +9,7 @@ class RoundPlayerOutcome {
   final bool isWinner;
   final bool isHost;
   final bool isYou;
+  final bool isForfeited;
   final int linesClaimedCount;
   final List<String> claimedLetters;
 
@@ -19,6 +20,7 @@ class RoundPlayerOutcome {
     this.isWinner = false,
     this.isHost = false,
     this.isYou = false,
+    this.isForfeited = false,
     this.linesClaimedCount = 0,
     this.claimedLetters = const [],
   });
@@ -29,6 +31,7 @@ class RoundPlayerOutcome {
     'avatar_color_hex': avatarColorHex,
     'is_winner': isWinner,
     'is_host': isHost,
+    'is_forfeited': isForfeited,
     'lines_claimed_count': linesClaimedCount,
     'claimed_letters': claimedLetters,
   };
@@ -37,20 +40,26 @@ class RoundPlayerOutcome {
     Map<String, dynamic> json, {
     String? currentUserId,
   }) {
-    final uid = json['user_id'] as String? ?? '';
+    final uid = (json['user_id'] ?? json['id']) as String? ?? '';
+    final linesCount = (json['lines_claimed_count'] as num?)?.toInt() ??
+        (json['lines_claimed'] as num?)?.toInt() ??
+        0;
+    final isWin = (json['is_winner'] as bool? ?? false) || linesCount >= 5;
+    final isForfeited = json['is_forfeited'] == true;
     return RoundPlayerOutcome(
       userId: uid,
-      displayName: json['display_name'] as String? ?? 'Player',
+      displayName: (json['display_name'] ?? json['name']) as String? ?? 'Player',
       avatarColorHex: json['avatar_color_hex'] as String? ?? '#FC695C',
-      isWinner: json['is_winner'] as bool? ?? false,
+      isWinner: isWin,
       isHost: json['is_host'] as bool? ?? false,
       isYou: currentUserId != null && currentUserId == uid,
-      linesClaimedCount: json['lines_claimed_count'] as int? ?? 0,
+      isForfeited: isForfeited,
+      linesClaimedCount: linesCount,
       claimedLetters:
           (json['claimed_letters'] as List<dynamic>?)
               ?.map((e) => e.toString())
               .toList() ??
-          const [],
+          ['B', 'I', 'N', 'G', 'O'].take(linesCount).toList(),
     );
   }
 }
@@ -96,15 +105,23 @@ class RoomRoundRecord {
     Map<String, dynamic> json, {
     String? currentUserId,
   }) {
-    final outcomesRaw = json['player_outcomes'] as List<dynamic>? ?? [];
+    final outcomesRaw =
+        (json['player_outcomes'] ?? json['outcomes']) as List<dynamic>? ?? [];
+    final wId = (json['winner_id'] ?? json['winner_user_id']) as String?;
+    final wName =
+        (json['winner_name'] ?? json['winner_display_name']) as String? ?? 'Winner';
+    final finishedTimeStr =
+        (json['finished_at'] ?? json['completed_at']) as String?;
+    final pCount = (json['player_count'] as num?)?.toInt() ?? outcomesRaw.length;
+
     return RoomRoundRecord(
       id: json['id'] as String? ?? '',
       roomId: json['room_id'] as String? ?? '',
-      roundNumber: json['round_number'] as int? ?? 1,
-      winnerId: json['winner_id'] as String?,
-      winnerName: json['winner_name'] as String? ?? 'Unknown',
-      totalCalls: json['total_calls'] as int? ?? 0,
-      playerCount: json['player_count'] as int? ?? 0,
+      roundNumber: (json['round_number'] as num?)?.toInt() ?? 1,
+      winnerId: wId,
+      winnerName: wName,
+      totalCalls: (json['total_calls'] as num?)?.toInt() ?? 0,
+      playerCount: pCount > 0 ? pCount : outcomesRaw.length,
       playerOutcomes: outcomesRaw
           .map(
             (o) => RoundPlayerOutcome.fromJson(
@@ -113,8 +130,8 @@ class RoomRoundRecord {
             ),
           )
           .toList(),
-      finishedAt: json['finished_at'] != null
-          ? DateTime.parse(json['finished_at'] as String)
+      finishedAt: finishedTimeStr != null
+          ? DateTime.tryParse(finishedTimeStr) ?? DateTime.now()
           : DateTime.now(),
     );
   }

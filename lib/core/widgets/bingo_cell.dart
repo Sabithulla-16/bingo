@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_radii.dart';
 import '../../app/theme/app_typography.dart';
+import '../theme/board_theme_config.dart';
 
 /// The visual presentation states for an individual 5x5 Bingo cell.
 enum BingoCellState {
@@ -18,12 +19,15 @@ enum BingoCellState {
   claimed,
 }
 
-/// A responsive, high-craft 5x5 Bingo cell widget supporting all four presentation states.
+/// A responsive, high-craft 5x5 Bingo cell widget supporting all four presentation states,
+/// dynamic board theme styling, and customized number font weights.
 class BingoCell extends StatelessWidget {
   final int number;
   final BingoCellState state;
   final VoidCallback? onTap;
   final bool isInteractive;
+  final BoardThemeConfig? themeConfig;
+  final int? numberStyleId;
 
   const BingoCell({
     super.key,
@@ -31,10 +35,14 @@ class BingoCell extends StatelessWidget {
     this.state = BingoCellState.available,
     this.onTap,
     this.isInteractive = true,
+    this.themeConfig,
+    this.numberStyleId,
   });
 
   @override
   Widget build(BuildContext context) {
+    final theme = themeConfig ?? BoardThemeConfig.classic();
+
     Color backgroundColor;
     Color textColor;
     Border border;
@@ -42,40 +50,48 @@ class BingoCell extends StatelessWidget {
 
     switch (state) {
       case BingoCellState.available:
-        backgroundColor = AppColors.surface;
-        textColor = AppColors.primaryNavy;
-        border = Border.all(color: AppColors.structuralBorder, width: 1.5);
+        backgroundColor = theme.cellAvailableBackground;
+        textColor = theme.cellAvailableText;
+        border = Border.all(color: theme.cellAvailableBorder, width: 1.5);
         break;
 
       case BingoCellState.called:
-        backgroundColor = AppColors.lightLavender;
-        textColor = AppColors.primaryNavy;
-        border = Border.all(color: AppColors.primaryNavy, width: 2.0);
+        backgroundColor = theme.cellCalledBackground;
+        textColor = theme.cellCalledText;
+        border = Border.all(color: theme.cellCalledBorder, width: 2.0);
         break;
 
       case BingoCellState.completedUnclaimed:
-        backgroundColor = AppColors.softYellow;
-        textColor = AppColors.primaryNavy;
-        border = Border.all(color: AppColors.primaryCoral, width: 2.5);
+        backgroundColor = theme.cellCompletedBackground;
+        textColor = theme.cellCompletedText;
+        border = Border.all(color: theme.cellCompletedBorder, width: 2.5);
         break;
 
       case BingoCellState.claimed:
-        backgroundColor = AppColors.primaryCoral;
-        textColor = AppColors.textOnPrimary;
-        border = Border.all(color: AppColors.primaryCoral, width: 1.5);
+        backgroundColor = theme.cellClaimedBackground;
+        textColor = theme.cellClaimedText;
+        border = Border.all(color: theme.cellClaimedBorder, width: 1.5);
         overlay = Container(
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            border: Border.all(
-              color: Colors.white.withAlpha(51), // 20% white stamp ring
-              width: 2.0,
-            ),
+            border: Border.all(color: theme.stampRingColor, width: 2.0),
           ),
         );
         break;
     }
 
     final numberFormatted = number < 10 ? '0$number' : '$number';
+
+    // Bold Numbers customization (id: 6) uses ultra-heavy weight
+    final isBoldNumbers = numberStyleId == 6;
+    final textStyle =
+        (isBoldNumbers
+                ? AppTypography.bingoNumber.copyWith(
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -0.5,
+                  )
+                : AppTypography.bingoNumber)
+            .copyWith(color: textColor);
 
     return AspectRatio(
       aspectRatio: 1.0,
@@ -108,10 +124,7 @@ class BingoCell extends StatelessWidget {
               alignment: Alignment.center,
               children: [
                 ?overlay,
-                Text(
-                  numberFormatted,
-                  style: AppTypography.bingoNumber.copyWith(color: textColor),
-                ),
+                Text(numberFormatted, style: textStyle),
               ],
             ),
           ),

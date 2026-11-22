@@ -11,6 +11,8 @@ import '../../../core/widgets/primary_button.dart';
 import '../../../core/widgets/responsive_scaffold.dart';
 import '../../../core/widgets/secondary_button.dart';
 import '../../../data/supabase/supabase_provider.dart';
+import '../../achievements/data/achievements_repository.dart';
+import '../../achievements/domain/achievement.dart';
 import '../data/rewards_repository.dart';
 import '../domain/earn_chips_models.dart';
 
@@ -24,13 +26,56 @@ class EarnChipsScreen extends ConsumerStatefulWidget {
 class _EarnChipsScreenState extends ConsumerState<EarnChipsScreen> {
   bool _isClaimingDaily = false;
   bool _isClaimingWin = false;
+  final Set<String> _claimingTaskIds = {};
+
+  Future<void> _handleClaimTask(String taskId) async {
+    if (_claimingTaskIds.contains(taskId)) return;
+    setState(() => _claimingTaskIds.add(taskId));
+    try {
+      final repo = ref.read(rewardsRepositoryProvider);
+      final reward = await repo.claimTask(taskId);
+      ref.read(feedbackServiceProvider).celebration();
+      await ref.read(authStateProvider.notifier).reloadProfile();
+      ref.invalidate(walletOverviewProvider);
+      ref.invalidate(earnTasksProvider);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '+$reward Chips Claimed!',
+              style: AppTypography.labelMd.copyWith(color: Colors.white),
+            ),
+            backgroundColor: AppColors.primaryNavy,
+            behavior: SnackBarBehavior.floating,
+            shape: const RoundedRectangleBorder(borderRadius: AppRadii.roundedFull),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString()),
+            backgroundColor: AppColors.errorRed,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _claimingTaskIds.remove(taskId));
+    }
+  }
 
   Future<void> _handleClaimDaily() async {
+    if (_isClaimingDaily) return;
     setState(() => _isClaimingDaily = true);
     try {
       final repo = ref.read(rewardsRepositoryProvider);
       final reward = await repo.claimDailyCheckin();
       ref.read(feedbackServiceProvider).celebration();
+      await ref.read(authStateProvider.notifier).reloadProfile();
+      ref.invalidate(walletOverviewProvider);
+      ref.invalidate(dailyCheckinProvider);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -47,10 +92,16 @@ class _EarnChipsScreenState extends ConsumerState<EarnChipsScreen> {
       }
     } catch (e) {
       if (mounted) {
+        ref.invalidate(dailyCheckinProvider);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(e.toString()),
+            content: Text(
+              e.toString().contains('already claimed')
+                  ? 'Daily reward already claimed today.'
+                  : 'Failed to claim daily reward. Please try again.',
+            ),
             backgroundColor: AppColors.errorRed,
+            behavior: SnackBarBehavior.floating,
           ),
         );
       }
@@ -60,11 +111,14 @@ class _EarnChipsScreenState extends ConsumerState<EarnChipsScreen> {
   }
 
   Future<void> _handleClaimWinMatch() async {
+    if (_isClaimingWin) return;
     setState(() => _isClaimingWin = true);
     try {
       final repo = ref.read(rewardsRepositoryProvider);
       final reward = await repo.claimTask('win_match');
       ref.read(feedbackServiceProvider).celebration();
+      await ref.read(authStateProvider.notifier).reloadProfile();
+      ref.invalidate(walletOverviewProvider);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -101,18 +155,34 @@ class _EarnChipsScreenState extends ConsumerState<EarnChipsScreen> {
     final checkinAsync = ref.watch(dailyCheckinProvider);
     final tasksAsync = ref.watch(earnTasksProvider);
     final walletMetricsAsync = ref.watch(walletOverviewProvider);
+    final achievementsAsync = ref.watch(achievementsListProvider);
+    final achievements = achievementsAsync.valueOrNull ?? [];
 
     final checkin =
         checkinAsync.valueOrNull ??
         const DailyCheckinInfo(
-          streak: 4,
+          streak: 1,
           isClaimedToday: false,
-          todayReward: 40,
-          claimedDays: [1, 2, 3],
-          secondsUntilReset: 51720,
+          todayReward: 25,
+          claimedDays: [],
+          secondsUntilReset: 86400,
         );
 
     final tasks = tasksAsync.valueOrNull ?? [];
+    final completeTask = tasks.firstWhere(
+      (t) => t.id == 'complete_match',
+      orElse: () => const MatchRewardTask(
+        id: 'complete_match',
+        title: 'Complete a Match',
+        category: 'match',
+        description: 'Finished a valid regular session',
+        rewardChips: 20,
+        current: 0,
+        target: 3,
+        status: RewardTaskStatus.inProgress,
+      ),
+    );
+
     final winTask = tasks.firstWhere(
       (t) => t.id == 'win_match',
       orElse: () => const MatchRewardTask(
@@ -121,9 +191,51 @@ class _EarnChipsScreenState extends ConsumerState<EarnChipsScreen> {
         category: 'match',
         description: 'Finished the round as top dauber',
         rewardChips: 30,
-        current: 1,
+        current: 0,
         target: 1,
-        status: RewardTaskStatus.readyToClaim,
+        status: RewardTaskStatus.inProgress,
+      ),
+    );
+
+    final playMultiplayerTask = tasks.firstWhere(
+      (t) => t.id == 'play_multiplayer',
+      orElse: () => const MatchRewardTask(
+        id: 'play_multiplayer',
+        title: 'Play Multiplayer',
+        category: 'match',
+        description: 'Complete any live synchronized match',
+        rewardChips: 20,
+        current: 0,
+        target: 1,
+        status: RewardTaskStatus.inProgress,
+      ),
+    );
+
+    final roomChampionTask = tasks.firstWhere(
+      (t) => t.id == 'room_champion',
+      orElse: () => const MatchRewardTask(
+        id: 'room_champion',
+        title: 'Room Champion',
+        category: 'multiplayer',
+        description: 'Win a multiplayer room match with 4+ players',
+        rewardChips: 100,
+        current: 0,
+        target: 3,
+        status: RewardTaskStatus.inProgress,
+      ),
+    );
+
+    final playFriendsTask = tasks.firstWhere(
+      (t) => t.id == 'play_with_friends',
+      orElse: () => const MatchRewardTask(
+        id: 'play_with_friends',
+        title: 'Play with Friends',
+        category: 'multiplayer',
+        description: 'Complete matches with invited friends',
+        rewardChips: 25,
+        current: 0,
+        target: 2,
+        status: RewardTaskStatus.inProgress,
       ),
     );
 
@@ -131,10 +243,10 @@ class _EarnChipsScreenState extends ConsumerState<EarnChipsScreen> {
         walletMetricsAsync.valueOrNull ??
         WalletOverviewMetrics(
           balance: chips,
-          availableRewards: 70,
-          lifetimeEarned: 1450,
-          tasksCompleted: 18,
-          totalTasks: 24,
+          availableRewards: 0,
+          lifetimeEarned: chips,
+          tasksCompleted: 0,
+          totalTasks: tasks.isEmpty ? 5 : tasks.length + 1,
         );
 
     return ResponsiveScaffold(
@@ -211,17 +323,17 @@ class _EarnChipsScreenState extends ConsumerState<EarnChipsScreen> {
             const SizedBox(height: 16),
 
             // 3. Match Rewards Section
-            _buildMatchRewardsSection(winTask),
+            _buildMatchRewardsSection(completeTask, winTask, playMultiplayerTask),
 
             const SizedBox(height: 16),
 
             // 4. Multiplayer Rewards Section
-            _buildMultiplayerRewardsSection(),
+            _buildMultiplayerRewardsSection(roomChampionTask, playFriendsTask),
 
             const SizedBox(height: 16),
 
             // 5. Achievements Preview Banner
-            _buildAchievementsPreviewBanner(),
+            _buildAchievementsPreviewBanner(achievements),
 
             const SizedBox(height: 16),
 
@@ -560,13 +672,13 @@ class _EarnChipsScreenState extends ConsumerState<EarnChipsScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Icon(
-                    Icons.check_rounded,
+                    Icons.check_circle_rounded,
                     size: 16,
-                    color: AppColors.textMuted,
+                    color: AppColors.readyGreen,
                   ),
                   const SizedBox(width: 6),
                   Text(
-                    'CLAIMED TODAY (+${checkin.todayReward} CHIPS)',
+                    'CLAIMED TODAY (+${checkin.todayReward} CHIPS) ✓',
                     style: AppTypography.labelMd.copyWith(
                       color: AppColors.textMuted,
                       fontWeight: FontWeight.w800,
@@ -711,7 +823,18 @@ class _EarnChipsScreenState extends ConsumerState<EarnChipsScreen> {
     );
   }
 
-  Widget _buildMatchRewardsSection(MatchRewardTask winTask) {
+  Widget _buildMatchRewardsSection(
+    MatchRewardTask completeTask,
+    MatchRewardTask winTask,
+    MatchRewardTask playMultiplayerTask,
+  ) {
+    final completedCount = [completeTask, winTask, playMultiplayerTask]
+        .where((t) => t.status.isClaimed || t.status.isReady)
+        .length;
+
+    final isClaimingComplete = _claimingTaskIds.contains(completeTask.id);
+    final isClaimingMulti = _claimingTaskIds.contains(playMultiplayerTask.id);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -742,7 +865,7 @@ class _EarnChipsScreenState extends ConsumerState<EarnChipsScreen> {
                 borderRadius: AppRadii.roundedFull,
               ),
               child: Text(
-                '2 of 3',
+                '$completedCount of 3',
                 style: AppTypography.labelSm.copyWith(
                   fontWeight: FontWeight.w800,
                   color: AppColors.primaryNavy,
@@ -753,57 +876,98 @@ class _EarnChipsScreenState extends ConsumerState<EarnChipsScreen> {
         ),
         const SizedBox(height: 10),
 
-        // Task 1: Complete a Match (Claimed)
+        // Task 1: Complete a Match
         _buildTaskCard(
           icon: Icons.sports_score_rounded,
-          title: 'Complete a Match',
-          reward: '+20',
-          desc: 'Finished a valid regular session',
-          statusSubtext: '3/3 Completed',
-          buttonLabel: 'CLAIMED',
-          isClaimed: true,
-          onPressed: null,
+          title: completeTask.title,
+          reward: '+${completeTask.rewardChips}',
+          desc: completeTask.description,
+          statusSubtext: completeTask.status.isClaimed
+              ? 'Claimed'
+              : (completeTask.status.isReady
+                  ? 'Ready to claim'
+                  : '${completeTask.current}/${completeTask.target} Completed'),
+          buttonLabel: isClaimingComplete
+              ? 'CLAIMING...'
+              : (completeTask.status.isClaimed
+                  ? 'CLAIMED'
+                  : (completeTask.status.isReady
+                      ? 'CLAIM (+${completeTask.rewardChips} CHIPS)'
+                      : 'PLAY MATCH')),
+          isClaimed: completeTask.status.isClaimed,
+          isHighlight: completeTask.status.isReady && !isClaimingComplete,
+          onPressed: completeTask.status.isClaimed
+              ? null
+              : (completeTask.status.isReady
+                  ? () => _handleClaimTask(completeTask.id)
+                  : () => context.push(AppRoutes.singlePlayerDifficulty)),
         ),
 
         const SizedBox(height: 8),
 
-        // Task 2: Win a Match (Claim Ready)
+        // Task 2: Win a Match
         _buildTaskCard(
           icon: Icons.military_tech_rounded,
-          title: 'Win a Match',
-          reward: '+30',
-          desc: 'Finished the round as top dauber',
+          title: winTask.title,
+          reward: '+${winTask.rewardChips}',
+          desc: winTask.description,
           statusSubtext: winTask.status.isClaimed
               ? 'Claimed'
-              : 'Ready to claim',
+              : (winTask.status.isReady
+                  ? 'Ready to claim'
+                  : '${winTask.current}/${winTask.target} Wins'),
           buttonLabel: _isClaimingWin
               ? 'CLAIMING...'
-              : (winTask.status.isClaimed ? 'CLAIMED' : 'CLAIM (+30 CHIPS)'),
+              : (winTask.status.isClaimed
+                  ? 'CLAIMED'
+                  : (winTask.status.isReady
+                      ? 'CLAIM (+${winTask.rewardChips} CHIPS)'
+                      : 'PLAY MATCH')),
           isClaimed: winTask.status.isClaimed,
-          isHighlight: !winTask.status.isClaimed && !_isClaimingWin,
+          isHighlight: winTask.status.isReady && !_isClaimingWin,
           onPressed: (winTask.status.isClaimed || _isClaimingWin)
               ? null
-              : _handleClaimWinMatch,
+              : (winTask.status.isReady
+                  ? _handleClaimWinMatch
+                  : () => context.push(AppRoutes.singlePlayerDifficulty)),
         ),
 
         const SizedBox(height: 8),
 
-        // Task 3: Play Multiplayer (Incomplete)
+        // Task 3: Play Multiplayer
         _buildTaskCard(
           icon: Icons.groups_rounded,
-          title: 'Play Multiplayer',
-          reward: '+20',
-          desc: 'Complete any live synchronized match',
-          statusSubtext: '0/1 Matches',
-          buttonLabel: 'PLAY MATCH',
-          isClaimed: false,
-          onPressed: () => context.push(AppRoutes.multiplayerMenu),
+          title: playMultiplayerTask.title,
+          reward: '+${playMultiplayerTask.rewardChips}',
+          desc: playMultiplayerTask.description,
+          statusSubtext: playMultiplayerTask.status.isClaimed
+              ? 'Claimed'
+              : (playMultiplayerTask.status.isReady
+                  ? 'Ready to claim'
+                  : '${playMultiplayerTask.current}/${playMultiplayerTask.target} Matches'),
+          buttonLabel: isClaimingMulti
+              ? 'CLAIMING...'
+              : (playMultiplayerTask.status.isClaimed
+                  ? 'CLAIMED'
+                  : (playMultiplayerTask.status.isReady
+                      ? 'CLAIM (+${playMultiplayerTask.rewardChips} CHIPS)'
+                      : 'PLAY MATCH')),
+          isClaimed: playMultiplayerTask.status.isClaimed,
+          isHighlight: playMultiplayerTask.status.isReady && !isClaimingMulti,
+          onPressed: playMultiplayerTask.status.isClaimed
+              ? null
+              : (playMultiplayerTask.status.isReady
+                  ? () => _handleClaimTask(playMultiplayerTask.id)
+                  : () => context.push(AppRoutes.multiplayerMenu)),
         ),
       ],
     );
   }
 
-  Widget _buildMultiplayerRewardsSection() {
+  Widget _buildMultiplayerRewardsSection(
+    MatchRewardTask roomChampion,
+    MatchRewardTask playFriends,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -854,90 +1018,85 @@ class _EarnChipsScreenState extends ConsumerState<EarnChipsScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 36,
-                        height: 36,
-                        decoration: BoxDecoration(
-                          color: AppColors.softYellow.withAlpha(50),
-                          borderRadius: BorderRadius.circular(8),
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            color: AppColors.softYellow.withAlpha(50),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(
+                            Icons.emoji_events_rounded,
+                            color: AppColors.softYellowDark,
+                            size: 20,
+                          ),
                         ),
-                        child: const Icon(
-                          Icons.emoji_events_rounded,
-                          color: AppColors.softYellowDark,
-                          size: 20,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                'Room Champion',
-                                style: AppTypography.labelMd.copyWith(
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                  vertical: 1,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: AppColors.softYellow,
-                                  borderRadius: AppRadii.roundedFull,
-                                ),
-                                child: Text(
-                                  '+100',
-                                  style: AppTypography.labelSm.copyWith(
-                                    fontSize: 9,
-                                    color: AppColors.primaryNavy,
-                                    fontWeight: FontWeight.w800,
+                              Row(
+                                children: [
+                                  Flexible(
+                                    child: Text(
+                                      roomChampion.title,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: AppTypography.labelMd.copyWith(
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
                                   ),
+                                  const SizedBox(width: 6),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 1,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.softYellow,
+                                      borderRadius: AppRadii.roundedFull,
+                                    ),
+                                    child: Text(
+                                      '+${roomChampion.rewardChips}',
+                                      style: AppTypography.labelSm.copyWith(
+                                        fontSize: 9,
+                                        color: AppColors.primaryNavy,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              Text(
+                                roomChampion.description,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: AppTypography.bodySm.copyWith(
+                                  fontSize: 10.5,
+                                  color: AppColors.textMuted,
                                 ),
                               ),
                             ],
                           ),
-                          Text(
-                            'Win a multiplayer room match with 4+ players',
-                            style: AppTypography.bodySm.copyWith(
-                              fontSize: 10.5,
-                              color: AppColors.textMuted,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                  InkWell(
-                    onTap: () => context.push(AppRoutes.multiplayerMenu),
-                    borderRadius: AppRadii.roundedFull,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.primaryNavy,
-                        borderRadius: AppRadii.roundedFull,
-                      ),
-                      child: Text(
-                        'JOIN ROOM',
-                        style: AppTypography.labelSm.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w800,
                         ),
-                      ),
+                      ],
                     ),
+                  ),
+                  const SizedBox(width: 8),
+                  _buildTaskActionButton(
+                    task: roomChampion,
+                    defaultLabel: 'JOIN ROOM',
+                    isDefaultNavy: true,
+                    onDefaultTap: () => context.push(AppRoutes.multiplayerMenu),
                   ),
                 ],
               ),
               const SizedBox(height: 10),
-              // Progress track (2/3 Wins - 66%)
+              // Dynamic Progress Track
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
@@ -950,14 +1109,23 @@ class _EarnChipsScreenState extends ConsumerState<EarnChipsScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          'In Progress (66%)',
+                          roomChampion.status.isClaimed
+                              ? 'Claimed ✓'
+                              : (roomChampion.status.isReady
+                                  ? 'Ready to claim! (100%)'
+                                  : 'In Progress (${(roomChampion.current / roomChampion.target * 100).round()}%)'),
                           style: AppTypography.labelSm.copyWith(
                             fontSize: 9.5,
-                            color: AppColors.textMuted,
+                            color: roomChampion.status.isReady
+                                ? AppColors.readyGreen
+                                : AppColors.textMuted,
+                            fontWeight: roomChampion.status.isReady
+                                ? FontWeight.w800
+                                : FontWeight.w600,
                           ),
                         ),
                         Text(
-                          '2/3 Wins',
+                          '${roomChampion.current}/${roomChampion.target} Wins',
                           style: AppTypography.labelSm.copyWith(
                             fontSize: 9.5,
                             fontWeight: FontWeight.w800,
@@ -968,11 +1136,13 @@ class _EarnChipsScreenState extends ConsumerState<EarnChipsScreen> {
                     const SizedBox(height: 5),
                     ClipRRect(
                       borderRadius: AppRadii.roundedFull,
-                      child: const LinearProgressIndicator(
-                        value: 0.66,
+                      child: LinearProgressIndicator(
+                        value: roomChampion.target > 0
+                            ? (roomChampion.current / roomChampion.target).clamp(0.0, 1.0)
+                            : 0.0,
                         minHeight: 6,
                         backgroundColor: AppColors.surfaceContainerHigh,
-                        valueColor: AlwaysStoppedAnimation<Color>(
+                        valueColor: const AlwaysStoppedAnimation<Color>(
                           AppColors.primaryCoral,
                         ),
                       ),
@@ -995,85 +1165,80 @@ class _EarnChipsScreenState extends ConsumerState<EarnChipsScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 36,
-                        height: 36,
-                        decoration: BoxDecoration(
-                          color: AppColors.surfaceContainerLow,
-                          borderRadius: BorderRadius.circular(8),
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            color: AppColors.surfaceContainerLow,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(
+                            Icons.diversity_3_rounded,
+                            color: AppColors.primaryNavy,
+                            size: 20,
+                          ),
                         ),
-                        child: const Icon(
-                          Icons.diversity_3_rounded,
-                          color: AppColors.primaryNavy,
-                          size: 20,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                'Play with Friends',
-                                style: AppTypography.labelMd.copyWith(
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                  vertical: 1,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: AppColors.surfaceContainer,
-                                  borderRadius: AppRadii.roundedFull,
-                                ),
-                                child: Text(
-                                  '+25',
-                                  style: AppTypography.labelSm.copyWith(
-                                    fontSize: 9,
-                                    color: AppColors.primaryNavy,
-                                    fontWeight: FontWeight.w800,
+                              Row(
+                                children: [
+                                  Flexible(
+                                    child: Text(
+                                      playFriends.title,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: AppTypography.labelMd.copyWith(
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
                                   ),
+                                  const SizedBox(width: 6),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 1,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.surfaceContainer,
+                                      borderRadius: AppRadii.roundedFull,
+                                    ),
+                                    child: Text(
+                                      '+${playFriends.rewardChips}',
+                                      style: AppTypography.labelSm.copyWith(
+                                        fontSize: 9,
+                                        color: AppColors.primaryNavy,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              Text(
+                                playFriends.description,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: AppTypography.bodySm.copyWith(
+                                  fontSize: 10.5,
+                                  color: AppColors.textMuted,
                                 ),
                               ),
                             ],
                           ),
-                          Text(
-                            'Complete matches with invited friends',
-                            style: AppTypography.bodySm.copyWith(
-                              fontSize: 10.5,
-                              color: AppColors.textMuted,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                  InkWell(
-                    onTap: () => context.push(AppRoutes.multiplayerMenu),
-                    borderRadius: AppRadii.roundedFull,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.surfaceContainer,
-                        borderRadius: AppRadii.roundedFull,
-                      ),
-                      child: Text(
-                        'INVITE',
-                        style: AppTypography.labelSm.copyWith(
-                          color: AppColors.primaryNavy,
-                          fontWeight: FontWeight.w800,
                         ),
-                      ),
+                      ],
                     ),
+                  ),
+                  const SizedBox(width: 8),
+                  _buildTaskActionButton(
+                    task: playFriends,
+                    defaultLabel: 'INVITE',
+                    isDefaultNavy: false,
+                    onDefaultTap: () => context.push(AppRoutes.multiplayerMenu),
                   ),
                 ],
               ),
@@ -1090,14 +1255,23 @@ class _EarnChipsScreenState extends ConsumerState<EarnChipsScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          'In Progress (50%)',
+                          playFriends.status.isClaimed
+                              ? 'Claimed ✓'
+                              : (playFriends.status.isReady
+                                  ? 'Ready to claim! (100%)'
+                                  : 'In Progress (${(playFriends.current / playFriends.target * 100).round()}%)'),
                           style: AppTypography.labelSm.copyWith(
                             fontSize: 9.5,
-                            color: AppColors.textMuted,
+                            color: playFriends.status.isReady
+                                ? AppColors.readyGreen
+                                : AppColors.textMuted,
+                            fontWeight: playFriends.status.isReady
+                                ? FontWeight.w800
+                                : FontWeight.w600,
                           ),
                         ),
                         Text(
-                          '1/2 Matches',
+                          '${playFriends.current}/${playFriends.target} Matches',
                           style: AppTypography.labelSm.copyWith(
                             fontSize: 9.5,
                             fontWeight: FontWeight.w800,
@@ -1108,11 +1282,13 @@ class _EarnChipsScreenState extends ConsumerState<EarnChipsScreen> {
                     const SizedBox(height: 5),
                     ClipRRect(
                       borderRadius: AppRadii.roundedFull,
-                      child: const LinearProgressIndicator(
-                        value: 0.5,
+                      child: LinearProgressIndicator(
+                        value: playFriends.target > 0
+                            ? (playFriends.current / playFriends.target).clamp(0.0, 1.0)
+                            : 0.0,
                         minHeight: 6,
                         backgroundColor: AppColors.surfaceContainerHigh,
-                        valueColor: AlwaysStoppedAnimation<Color>(
+                        valueColor: const AlwaysStoppedAnimation<Color>(
                           AppColors.primaryNavy,
                         ),
                       ),
@@ -1124,6 +1300,71 @@ class _EarnChipsScreenState extends ConsumerState<EarnChipsScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildTaskActionButton({
+    required MatchRewardTask task,
+    required String defaultLabel,
+    required bool isDefaultNavy,
+    required VoidCallback onDefaultTap,
+  }) {
+    if (task.status.isClaimed) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: const BoxDecoration(
+          color: AppColors.surfaceContainer,
+          borderRadius: AppRadii.roundedFull,
+        ),
+        child: Text(
+          'CLAIMED ✓',
+          style: AppTypography.labelSm.copyWith(
+            color: AppColors.textMuted,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      );
+    }
+    if (task.status.isReady) {
+      final isClaiming = _claimingTaskIds.contains(task.id);
+      return InkWell(
+        onTap: isClaiming ? null : () => _handleClaimTask(task.id),
+        borderRadius: AppRadii.roundedFull,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: const BoxDecoration(
+            color: AppColors.primaryCoral,
+            borderRadius: AppRadii.roundedFull,
+          ),
+          child: Text(
+            isClaiming ? 'CLAIMING...' : 'CLAIM (+${task.rewardChips})',
+            style: AppTypography.labelSm.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+      );
+    }
+    return InkWell(
+      onTap: onDefaultTap,
+      borderRadius: AppRadii.roundedFull,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: isDefaultNavy
+              ? AppColors.primaryNavy
+              : AppColors.surfaceContainer,
+          borderRadius: AppRadii.roundedFull,
+        ),
+        child: Text(
+          defaultLabel,
+          style: AppTypography.labelSm.copyWith(
+            color: isDefaultNavy ? Colors.white : AppColors.primaryNavy,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ),
     );
   }
 
@@ -1223,27 +1464,54 @@ class _EarnChipsScreenState extends ConsumerState<EarnChipsScreen> {
           ),
           const SizedBox(width: 8),
           InkWell(
-            onTap: onPressed,
+            onTap: isClaimed ? null : onPressed,
             borderRadius: AppRadii.roundedFull,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
               decoration: BoxDecoration(
-                color: isHighlight
-                    ? AppColors.primaryCoral
-                    : AppColors.surfaceContainerLow,
+                color: isClaimed
+                    ? AppColors.surfaceContainerHigh
+                    : (isHighlight
+                          ? AppColors.primaryCoral
+                          : AppColors.surfaceContainerLow),
                 borderRadius: AppRadii.roundedFull,
+                border: isClaimed
+                    ? Border.all(color: AppColors.structuralBorder)
+                    : null,
               ),
-              child: Text(
-                buttonLabel,
-                style: AppTypography.labelSm.copyWith(
-                  color: isHighlight
-                      ? Colors.white
-                      : (isClaimed
-                            ? AppColors.textMuted
-                            : AppColors.primaryNavy),
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
+              child: buttonLabel == 'CLAIMING...'
+                  ? const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    )
+                  : Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (isClaimed) ...[
+                          const Icon(
+                            Icons.check_circle_rounded,
+                            size: 13,
+                            color: AppColors.readyGreen,
+                          ),
+                          const SizedBox(width: 4),
+                        ],
+                        Text(
+                          isClaimed ? 'CLAIMED ✓' : buttonLabel,
+                          style: AppTypography.labelSm.copyWith(
+                            color: isClaimed
+                                ? AppColors.textMuted
+                                : (isHighlight
+                                      ? Colors.white
+                                      : AppColors.primaryNavy),
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
+                    ),
             ),
           ),
         ],
@@ -1251,7 +1519,37 @@ class _EarnChipsScreenState extends ConsumerState<EarnChipsScreen> {
     );
   }
 
-  Widget _buildAchievementsPreviewBanner() {
+  Widget _buildAchievementsPreviewBanner(List<Achievement> achievements) {
+    final unlockedCount = achievements
+        .where((a) => a.status.isClaimed || a.status.isReady)
+        .length;
+    final totalCount = achievements.isEmpty ? 28 : achievements.length;
+    final totalAvailableChips = achievements
+        .where((a) => !a.status.isClaimed)
+        .fold(0, (sum, a) => sum + a.rewardChips);
+
+    // Find next unlock in reach
+    Achievement? nextUnlock;
+    final inProgressList =
+        achievements.where((a) => a.status.isInProgress).toList();
+    if (inProgressList.isNotEmpty) {
+      inProgressList.sort((a, b) => b.progressPercentage.compareTo(a.progressPercentage));
+      nextUnlock = inProgressList.first;
+    } else {
+      final readyList = achievements.where((a) => a.status.isReady).toList();
+      if (readyList.isNotEmpty) {
+        nextUnlock = readyList.first;
+      }
+    }
+
+    final nextTitle = nextUnlock != null
+        ? '${nextUnlock.title} (${nextUnlock.current}/${nextUnlock.target})'
+        : (achievements.isEmpty
+            ? 'Play matches to unlock achievements'
+            : 'All milestones reached!');
+    final nextReward =
+        nextUnlock != null ? '+${nextUnlock.rewardChips} CHIPS' : 'MAX LEVEL';
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -1295,7 +1593,7 @@ class _EarnChipsScreenState extends ConsumerState<EarnChipsScreen> {
                     ),
                   ),
                   Text(
-                    '12 / 28 Unlocked • Up to +1,850 Chips',
+                    '$unlockedCount / $totalCount Unlocked • Up to +$totalAvailableChips Chips',
                     style: AppTypography.labelSm.copyWith(
                       color: Colors.white70,
                     ),
@@ -1316,26 +1614,31 @@ class _EarnChipsScreenState extends ConsumerState<EarnChipsScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'NEXT UNLOCK IN REACH',
-                      style: AppTypography.labelSm.copyWith(
-                        fontSize: 9,
-                        color: AppColors.softYellow,
-                        fontWeight: FontWeight.w800,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'NEXT UNLOCK IN REACH',
+                        style: AppTypography.labelSm.copyWith(
+                          fontSize: 9,
+                          color: AppColors.softYellow,
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
-                    ),
-                    Text(
-                      'Winning Streak (2/3 wins)',
-                      style: AppTypography.labelMd.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w800,
+                      Text(
+                        nextTitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.labelMd.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
+                const SizedBox(width: 8),
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 8,
@@ -1346,7 +1649,7 @@ class _EarnChipsScreenState extends ConsumerState<EarnChipsScreen> {
                     borderRadius: AppRadii.roundedFull,
                   ),
                   child: Text(
-                    '+200 CHIPS',
+                    nextReward,
                     style: AppTypography.labelSm.copyWith(
                       color: AppColors.primaryCoral,
                       fontWeight: FontWeight.w900,

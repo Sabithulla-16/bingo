@@ -1,7 +1,9 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../data/supabase/supabase_provider.dart';
 import '../../features/achievements/presentation/achievements_screen.dart';
+import '../../features/authentication/domain/auth_state.dart';
 import '../../features/authentication/presentation/auth_screen.dart';
 import '../../features/earn_chips/presentation/earn_chips_screen.dart';
 import '../../features/home/presentation/home_screen.dart';
@@ -11,6 +13,9 @@ import '../../features/multiplayer/gameplay/multiplayer_gameplay_screen.dart';
 import '../../features/multiplayer/join_room/join_room_screen.dart';
 import '../../features/multiplayer/lobby/multiplayer_lobby_screen.dart';
 import '../../features/multiplayer/menu/multiplayer_menu_screen.dart';
+import '../../features/multiplayer/quick_match/opponent_found_screen.dart';
+import '../../features/multiplayer/quick_match/quick_match_result_screen.dart';
+import '../../features/multiplayer/quick_match/quick_match_screen.dart';
 import '../../features/multiplayer/result/multiplayer_result_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
 import '../../features/room_statistics/presentation/room_statistics_screen.dart';
@@ -23,13 +28,31 @@ import '../../features/store/presentation/store_screen.dart';
 import 'app_routes.dart';
 import 'route_guards.dart';
 
+/// Listenable that triggers GoRouter redirect re-evaluation strictly on
+/// authentication type changes (e.g. login / logout), preserving active routes
+/// when user profiles or wallet balances are reloaded.
+class AuthRouterListenable extends ChangeNotifier {
+  final Ref _ref;
+
+  AuthRouterListenable(this._ref) {
+    _ref.listen<AppAuthState>(authStateProvider, (prev, next) {
+      if (prev?.runtimeType != next.runtimeType) {
+        notifyListeners();
+      }
+    });
+  }
+}
+
 final routerProvider = Provider<GoRouter>((ref) {
-  final authState = ref.watch(authStateProvider);
+  final refreshListenable = AuthRouterListenable(ref);
 
   return GoRouter(
     initialLocation: AppRoutes.splash,
-    redirect: (context, state) =>
-        RouteGuards.authRedirect(context, state, authState),
+    refreshListenable: refreshListenable,
+    redirect: (context, state) {
+      final authState = ref.read(authStateProvider);
+      return RouteGuards.authRedirect(context, state, authState);
+    },
     routes: [
       GoRoute(
         path: AppRoutes.splash,
@@ -37,7 +60,19 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: AppRoutes.auth,
-        builder: (context, state) => const AuthScreen(),
+        builder: (context, state) {
+          final modeStr = state.uri.queryParameters['mode'];
+          final initialMode = modeStr == 'signIn'
+              ? AuthMode.signIn
+              : modeStr == 'forgot'
+              ? AuthMode.forgotPassword
+              : AuthMode.register;
+          final redirectUrl = state.uri.queryParameters['redirect'] ?? (state.extra as String?);
+          return AuthScreen(
+            initialMode: initialMode,
+            redirectUrl: redirectUrl,
+          );
+        },
       ),
       GoRoute(
         path: AppRoutes.home,
@@ -65,6 +100,26 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) {
           final gameId = state.pathParameters['gameId'] ?? 'sp_1';
           return SinglePlayerResultScreen(gameId: gameId);
+        },
+      ),
+
+      // Quick Match Routes
+      GoRoute(
+        path: AppRoutes.quickMatch,
+        builder: (context, state) => const QuickMatchScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.quickMatchOpponentFound,
+        builder: (context, state) {
+          final matchId = state.pathParameters['matchId'] ?? '';
+          return OpponentFoundScreen(matchId: matchId);
+        },
+      ),
+      GoRoute(
+        path: AppRoutes.quickMatchResult,
+        builder: (context, state) {
+          final matchId = state.pathParameters['matchId'] ?? '';
+          return QuickMatchResultScreen(matchId: matchId);
         },
       ),
 

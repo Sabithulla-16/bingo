@@ -32,6 +32,8 @@ class _AchievementsScreenState extends ConsumerState<AchievementsScreen> {
       final repo = ref.read(achievementsRepositoryProvider);
       final reward = await repo.claimAchievement(item.id);
       ref.read(feedbackServiceProvider).celebration();
+      await ref.read(authStateProvider.notifier).reloadProfile();
+      ref.invalidate(achievementsListProvider);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -59,6 +61,10 @@ class _AchievementsScreenState extends ConsumerState<AchievementsScreen> {
       }
     } catch (e) {
       if (mounted) {
+        if (e is StateError && e.message.contains('already been claimed')) {
+          ref.invalidate(achievementsListProvider);
+          return;
+        }
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(e.toString()),
@@ -101,7 +107,7 @@ class _AchievementsScreenState extends ConsumerState<AchievementsScreen> {
         .fold<int>(0, (sum, a) => sum + a.rewardChips);
     final totalChipsWon = rawList
         .where((a) => a.status.isClaimed)
-        .fold<int>(850, (sum, a) => sum);
+        .fold<int>(0, (sum, a) => sum + a.rewardChips);
 
     return ResponsiveScaffold(
       appBar: AppBar(
@@ -801,33 +807,46 @@ class _AchievementsScreenState extends ConsumerState<AchievementsScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
               decoration: BoxDecoration(
-                color: AppColors.primaryCoral,
+                color: isClaiming
+                    ? AppColors.primaryCoral.withAlpha(160)
+                    : AppColors.primaryCoral,
                 borderRadius: AppRadii.roundedFull,
-                boxShadow: const [
-                  BoxShadow(
-                    color: Color(0x33FC695C),
-                    blurRadius: 4,
-                    offset: Offset(0, 2),
-                  ),
-                ],
+                boxShadow: isClaiming
+                    ? null
+                    : const [
+                        BoxShadow(
+                          color: Color(0x33FC695C),
+                          blurRadius: 4,
+                          offset: Offset(0, 2),
+                        ),
+                      ],
               ),
-              child: Row(
-                children: [
-                  Text(
-                    'CLAIM +${item.rewardChips}',
-                    style: AppTypography.labelSm.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w900,
+              child: isClaiming
+                  ? const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    )
+                  : Row(
+                      children: [
+                        Text(
+                          'CLAIM +${item.rewardChips}',
+                          style: AppTypography.labelSm.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        const Icon(
+                          Icons.redeem_rounded,
+                          size: 14,
+                          color: Colors.white,
+                        ),
+                      ],
                     ),
-                  ),
-                  const SizedBox(width: 4),
-                  const Icon(
-                    Icons.redeem_rounded,
-                    size: 14,
-                    color: Colors.white,
-                  ),
-                ],
-              ),
             ),
           ),
         ],
@@ -855,22 +874,32 @@ class _AchievementsScreenState extends ConsumerState<AchievementsScreen> {
               ),
             ],
           ),
-          Row(
-            children: [
-              const Icon(
-                Icons.check_circle_rounded,
-                size: 15,
-                color: AppColors.readyGreen,
-              ),
-              const SizedBox(width: 4),
-              Text(
-                '${item.current} / ${item.target}',
-                style: AppTypography.labelSm.copyWith(
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.primaryNavy,
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceContainerHigh,
+              borderRadius: AppRadii.roundedFull,
+              border: Border.all(color: AppColors.structuralBorder),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.check_circle_rounded,
+                  size: 13,
+                  color: AppColors.readyGreen,
                 ),
-              ),
-            ],
+                const SizedBox(width: 4),
+                Text(
+                  'CLAIMED ✓',
+                  style: AppTypography.labelSm.copyWith(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.textMuted,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       );

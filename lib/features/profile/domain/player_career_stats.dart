@@ -87,6 +87,30 @@ class PlayerCareerStats {
     this.recentMatches = const [],
   });
 
+  PlayerCareerStats copyWith({
+    int? totalMatches,
+    int? wins,
+    int? losses,
+    int? draws,
+    int? currentStreak,
+    int? bestStreak,
+    int? highestLinesClaimed,
+    double? averageCallsPerMatch,
+    List<MatchRecord>? recentMatches,
+  }) {
+    return PlayerCareerStats(
+      totalMatches: totalMatches ?? this.totalMatches,
+      wins: wins ?? this.wins,
+      losses: losses ?? this.losses,
+      draws: draws ?? this.draws,
+      currentStreak: currentStreak ?? this.currentStreak,
+      bestStreak: bestStreak ?? this.bestStreak,
+      highestLinesClaimed: highestLinesClaimed ?? this.highestLinesClaimed,
+      averageCallsPerMatch: averageCallsPerMatch ?? this.averageCallsPerMatch,
+      recentMatches: recentMatches ?? this.recentMatches,
+    );
+  }
+
   /// Overall win percentage (0 to 100).
   int get winRatePercentage {
     if (totalMatches == 0) return 0;

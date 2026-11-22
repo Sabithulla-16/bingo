@@ -31,22 +31,17 @@ void main() {
       expect(find.text('BINGO PLAYER'), findsOneWidget);
       expect(find.text('EDIT PROFILE'), findsOneWidget);
 
-      // Performance metrics
+      // Performance metrics (genuine initial 0 stats for new player)
       expect(find.text('TOTAL MATCHES'), findsOneWidget);
-      expect(find.text('25'), findsOneWidget);
+      expect(find.text('0'), findsWidgets);
       expect(find.text('WINS'), findsOneWidget);
-      expect(find.text('12'), findsOneWidget);
       expect(find.text('WIN RATE'), findsOneWidget);
-      expect(find.text('48%'), findsOneWidget);
+      expect(find.text('0%'), findsOneWidget);
 
       // Streaks
       expect(find.text('CURRENT STREAK'), findsOneWidget);
-      expect(find.text('2 WINS'), findsOneWidget);
+      expect(find.text('0 WINS'), findsWidgets);
       expect(find.text('BEST STREAK'), findsOneWidget);
-      expect(find.text('5 WINS'), findsOneWidget);
-
-      // Recent Matches
-      expect(find.text('Friday BINGO Club'), findsWidgets);
     },
   );
 

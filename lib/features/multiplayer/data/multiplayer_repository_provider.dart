@@ -14,3 +14,8 @@ final multiplayerRepositoryProvider = Provider<MultiplayerRepository>((ref) {
     profileRepository: profileRepo,
   );
 });
+
+final recentRoomsProvider = FutureProvider<List<Map<String, dynamic>>>((ref) {
+  final repo = ref.watch(multiplayerRepositoryProvider);
+  return repo.getRecentRooms();
+});

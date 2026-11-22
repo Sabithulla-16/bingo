@@ -34,17 +34,17 @@ class _SplashAnimatedBingoBoardState extends State<SplashAnimatedBingoBoard>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1200),
+      duration: const Duration(milliseconds: 2000),
     );
 
     _strokeAnimation = CurvedAnimation(
       parent: _controller,
-      curve: Curves.easeOutCubic,
+      curve: Curves.easeInOutCubic,
     );
 
     _sparkleAnimation = CurvedAnimation(
       parent: _controller,
-      curve: const Interval(0.2, 1.0, curve: Curves.easeOutBack),
+      curve: const Interval(0.25, 1.0, curve: Curves.easeInOut),
     );
 
     _controller.forward();

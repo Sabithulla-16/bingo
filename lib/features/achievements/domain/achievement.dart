@@ -169,80 +169,81 @@ class Achievement {
   }
 
   /// Standard approved definitions matching the Stitch design specifications.
+  /// All initial progress starts strictly at 0 (locked) until verified genuine player activity occurs.
   static List<Achievement> get standardList => const [
-    // 1. Getting Started (Ready in Stitch mockup)
+    // 1. Getting Started
     Achievement(
       id: 'card-getting-started',
       title: 'Getting Started',
       category: AchievementCategory.gameplay,
-      description: 'Complete 10 BINGO matches (10/10 completed).',
+      description: 'Complete 10 BINGO matches.',
       icon: 'ads_click',
-      status: AchievementStatus.ready,
-      current: 10,
+      status: AchievementStatus.locked,
+      current: 0,
       target: 10,
       rewardChips: 100,
     ),
-    // 2. Winning Streak (In Progress)
+    // 2. Winning Streak
     Achievement(
       id: 'card-winning-streak',
       title: 'Winning Streak',
       category: AchievementCategory.winning,
       description: 'Win 3 matches consecutively.',
       icon: 'local_fire_department',
-      status: AchievementStatus.inProgress,
-      current: 2,
+      status: AchievementStatus.locked,
+      current: 0,
       target: 3,
       rewardChips: 200,
     ),
-    // 3. Room Regular (In Progress)
+    // 3. Room Regular
     Achievement(
       id: 'card-room-regular',
       title: 'Room Regular',
       category: AchievementCategory.multiplayer,
       description: 'Complete 10 multiplayer matches.',
       icon: 'sports_esports',
-      status: AchievementStatus.inProgress,
-      current: 6,
+      status: AchievementStatus.locked,
+      current: 0,
       target: 10,
       rewardChips: 150,
     ),
-    // 4. Room Champion (In Progress)
+    // 4. Room Champion
     Achievement(
       id: 'card-room-champion',
       title: 'Room Champion',
       category: AchievementCategory.multiplayer,
       description: 'Win 5 multiplayer matches.',
       icon: 'hotel_class',
-      status: AchievementStatus.inProgress,
-      current: 3,
+      status: AchievementStatus.locked,
+      current: 0,
       target: 5,
       rewardChips: 250,
     ),
-    // 5. Dedicated Player (In Progress)
+    // 5. Dedicated Player
     Achievement(
       id: 'card-dedicated-player',
       title: 'Dedicated Player',
       category: AchievementCategory.streaks,
       description: 'Check in for 7 consecutive days.',
       icon: 'calendar_month',
-      status: AchievementStatus.inProgress,
-      current: 4,
+      status: AchievementStatus.locked,
+      current: 0,
       target: 7,
       rewardChips: 200,
     ),
-    // 6. Number Master (In Progress)
+    // 6. Number Master
     Achievement(
       id: 'card-number-master',
       title: 'Number Master',
       category: AchievementCategory.gameplay,
       description: 'Play 25 matches.',
       icon: 'casino',
-      status: AchievementStatus.inProgress,
-      current: 14,
+      status: AchievementStatus.locked,
+      current: 0,
       target: 25,
       rewardChips: 150,
     ),
-    // 7. BINGO Champion (Locked)
+    // 7. BINGO Champion
     Achievement(
       id: 'card-bingo-champion',
       title: 'BINGO Champion',
@@ -250,11 +251,11 @@ class Achievement {
       description: 'Win 10 matches total.',
       icon: 'lock',
       status: AchievementStatus.locked,
-      current: 4,
+      current: 0,
       target: 10,
       rewardChips: 300,
     ),
-    // 8. Collector (Locked)
+    // 8. Collector
     Achievement(
       id: 'card-collector',
       title: 'Collector',
@@ -262,67 +263,67 @@ class Achievement {
       description: 'Own 5 customizations.',
       icon: 'diamond',
       status: AchievementStatus.locked,
-      current: 2,
+      current: 0,
       target: 5,
       rewardChips: 150,
     ),
-    // 9. First Steps (Claimed)
+    // 9. First Steps
     Achievement(
       id: 'card-first-steps',
       title: 'First Steps',
       category: AchievementCategory.gameplay,
       description: 'Complete your first BINGO match.',
       icon: 'military_tech',
-      status: AchievementStatus.claimed,
-      current: 1,
+      status: AchievementStatus.locked,
+      current: 0,
       target: 1,
       rewardChips: 50,
     ),
-    // 10. First BINGO (Claimed)
+    // 10. First BINGO
     Achievement(
       id: 'card-first-bingo',
       title: 'First BINGO',
       category: AchievementCategory.winning,
       description: 'Win your first match.',
       icon: 'emoji_events',
-      status: AchievementStatus.claimed,
-      current: 1,
+      status: AchievementStatus.locked,
+      current: 0,
       target: 1,
       rewardChips: 100,
     ),
-    // 11. Social Player (Claimed)
+    // 11. Social Player
     Achievement(
       id: 'card-social-player',
       title: 'Social Player',
       category: AchievementCategory.multiplayer,
       description: 'Complete your first multiplayer match.',
       icon: 'group',
-      status: AchievementStatus.claimed,
-      current: 1,
+      status: AchievementStatus.locked,
+      current: 0,
       target: 1,
       rewardChips: 75,
     ),
-    // 12. Style Explorer (Claimed)
+    // 12. Style Explorer
     Achievement(
       id: 'card-style-explorer',
       title: 'Style Explorer',
       category: AchievementCategory.collection,
       description: 'Equip your first customization.',
       icon: 'palette',
-      status: AchievementStatus.claimed,
-      current: 1,
+      status: AchievementStatus.locked,
+      current: 0,
       target: 1,
       rewardChips: 50,
     ),
-    // 13. Daily Visitor (Claimed)
+    // 13. Daily Visitor
     Achievement(
       id: 'card-daily-visitor',
       title: 'Daily Visitor',
       category: AchievementCategory.streaks,
       description: 'Check in for 3 consecutive days.',
       icon: 'event_available',
-      status: AchievementStatus.claimed,
-      current: 3,
+      status: AchievementStatus.locked,
+      current: 0,
       target: 3,
       rewardChips: 75,
     ),

@@ -7,30 +7,111 @@ import '../../../app/theme/app_radii.dart';
 import '../../../app/theme/app_typography.dart';
 import '../../../core/game_engine/board_coordinate.dart';
 import '../../../core/services/feedback_service.dart';
+import '../../../core/theme/board_theme_config.dart';
 import '../../../core/widgets/app_card.dart';
 import '../../../core/widgets/app_error_banner.dart';
 import '../../../core/widgets/bingo_cell.dart';
 import '../../../core/widgets/player_avatar.dart';
 import '../../../core/widgets/responsive_scaffold.dart';
+import '../../store/data/store_repository.dart';
+import '../data/multiplayer_repository_provider.dart';
 import '../domain/multiplayer_game.dart';
+import '../domain/room.dart';
 import '../presentation/multiplayer_game_notifier.dart';
 
 /// Multiplayer Gameplay Screen (Stitch Screen 13: `99e26fda63c3428a82b9702145ca87f5`)
-class MultiplayerGameplayScreen extends ConsumerWidget {
+class MultiplayerGameplayScreen extends ConsumerStatefulWidget {
   final String roomId;
 
   const MultiplayerGameplayScreen({super.key, required this.roomId});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<MultiplayerGameplayScreen> createState() =>
+      _MultiplayerGameplayScreenState();
+}
+
+class _MultiplayerGameplayScreenState
+    extends ConsumerState<MultiplayerGameplayScreen> {
+  String? _navigatedGameId;
+  bool _isForfeiting = false;
+  bool _hasNavigatedHome = false;
+  bool get _hasNavigated => _navigatedGameId != null || _hasNavigatedHome;
+
+  void _navigateToHomeOnForfeit() {
+    if (_hasNavigatedHome || !mounted) return;
+    _hasNavigatedHome = true;
+    _navigatedGameId = 'forfeited';
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        context.go(AppRoutes.home);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('You forfeited the match and left the room.'),
+            backgroundColor: AppColors.primaryNavy,
+            behavior: SnackBarBehavior.floating,
+            duration: Duration(seconds: 4),
+          ),
+        );
+      }
+    });
+  }
+
+  void _navigateToResult([String? gameId]) {
+    if (_hasNavigatedHome) return;
+    final activeId = gameId ??
+        ref.read(multiplayerGameProvider(widget.roomId)).game?.id ??
+        'default';
+    if (_navigatedGameId == activeId || !mounted) return;
+    _navigatedGameId = activeId;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (mounted && !_hasNavigatedHome) {
+        try {
+          final room = ref.read(multiplayerGameProvider(widget.roomId)).room;
+          final isQuickMatch = room?.isQuickMatch == true;
+          if (isQuickMatch) {
+            final repo = ref.read(multiplayerRepositoryProvider);
+            final qm = await repo.getQuickMatchByRoomId(widget.roomId);
+            if (qm != null && mounted) {
+              context.go(AppRoutes.quickMatchResultPath(qm.id));
+              return;
+            }
+          }
+          if (mounted) {
+            context.go(AppRoutes.multiplayerResultPath(widget.roomId));
+          }
+        } catch (_) {}
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final roomId = widget.roomId;
     final state = ref.watch(multiplayerGameProvider(roomId));
     final notifier = ref.read(multiplayerGameProvider(roomId).notifier);
+    final customization = ref.watch(playerCustomizationProvider);
 
     // Auto-navigate to result screen upon match conclusion and trigger audio feedback
     ref.listen<MultiplayerGameState>(multiplayerGameProvider(roomId), (
       prev,
       next,
     ) {
+      final currentUid = next.currentUserId;
+      final isCurrentUserForfeited = _isForfeiting ||
+          next.isCurrentPlayerForfeited ||
+          (currentUid != null &&
+              next.players.any((p) => p.userId == currentUid && p.isForfeited));
+
+      if (isCurrentUserForfeited) {
+        final isQm = next.room?.isQuickMatch == true;
+        if (isQm) {
+          _navigateToResult(next.game?.id);
+        } else {
+          _navigateToHomeOnForfeit();
+        }
+        return;
+      }
+
       // 1. Critical BINGO Victory Trigger: Play upgraded BINGO victory sound whenever
       // ANY multiplayer participant achieves 5 lines or the authoritative game completes.
       final wasCompleted =
@@ -77,23 +158,32 @@ class MultiplayerGameplayScreen extends ConsumerWidget {
         ref.read(feedbackServiceProvider).callNumber();
       }
 
-      if (isCompleted && !wasCompleted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              next.hasWon
-                  ? 'BINGO! VICTORY ACHIEVED!'
-                  : 'Match Ended! Check Final Leaderboard.',
-              style: AppTypography.labelLg.copyWith(color: Colors.white),
-            ),
-            backgroundColor: next.hasWon
-                ? AppColors.primaryCoral
-                : AppColors.primaryNavy,
-            duration: const Duration(seconds: 4),
-          ),
-        );
+      // Automatic navigation to Multiplayer Result screen for active winner / participants
+      if (next.isMatchOver ||
+          next.room?.status == RoomStatus.completed ||
+          (isCompleted && !wasCompleted) ||
+          (hasWinner && !hadWinner) ||
+          (anyPlayerWon && !prevAnyPlayerWon)) {
+        if (!isCurrentUserForfeited && !_isForfeiting && !_hasNavigatedHome) {
+          _navigateToResult(next.game?.id);
+        }
       }
     });
+
+    // Handle immediate redirect if screen was opened for an already concluded match
+    if (state.isMatchOver && !state.isLoading && _navigatedGameId == null) {
+      final isCurrentUserForfeited = _isForfeiting ||
+          state.isCurrentPlayerForfeited ||
+          (state.currentUserId != null &&
+              state.players.any(
+                (p) => p.userId == state.currentUserId && p.isForfeited,
+              ));
+      if (isCurrentUserForfeited) {
+        _navigateToHomeOnForfeit();
+      } else {
+        _navigateToResult(state.game?.id);
+      }
+    }
 
     final roomName = state.room?.name ?? 'Bingo Room';
     final roomCode = state.room?.code ?? '......';
@@ -103,6 +193,7 @@ class MultiplayerGameplayScreen extends ConsumerWidget {
         .firstOrNull;
 
     return ResponsiveScaffold(
+      backgroundColor: AppColors.background,
       body: state.isLoading
           ? const Center(
               child: CircularProgressIndicator(color: AppColors.primaryCoral),
@@ -139,7 +230,7 @@ class MultiplayerGameplayScreen extends ConsumerWidget {
                   const SizedBox(height: 12),
 
                   // Multiplayer Presence Rail (Horizontal compact player cards)
-                  _buildPresenceRail(state),
+                  _buildPresenceRail(state, customization),
                   const SizedBox(height: 14),
 
                   // Turn Indicator Banner
@@ -147,12 +238,17 @@ class MultiplayerGameplayScreen extends ConsumerWidget {
                   const SizedBox(height: 14),
 
                   // Private 5x5 Bingo Board (Center Stage)
-                  _buildPrivateBoard(context, ref, state, notifier),
+                  _buildPrivateBoard(
+                    context,
+                    ref,
+                    state,
+                    notifier,
+                    customization,
+                  ),
                   const SizedBox(height: 14),
 
-                  // Line Claiming Interface (Shown only while match is actively in progress)
-                  if (state.unclaimedCompletedLines.isNotEmpty &&
-                      !state.isMatchOver) ...[
+                  // Line Claiming Interface (Consistent Stitch design layout for all players)
+                  if (!state.isMatchOver) ...[
                     _buildLineClaimCard(ref, state, notifier),
                     const SizedBox(height: 14),
                   ],
@@ -235,7 +331,7 @@ class MultiplayerGameplayScreen extends ConsumerWidget {
                 color: AppColors.primaryNavy,
               ),
               onPressed: () =>
-                  context.push(AppRoutes.roomStatisticsPath(roomId)),
+                  context.push(AppRoutes.roomStatisticsPath(widget.roomId)),
             ),
             IconButton(
               icon: const Icon(
@@ -369,7 +465,7 @@ class MultiplayerGameplayScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildPresenceRail(MultiplayerGameState state) {
+  Widget _buildPresenceRail(MultiplayerGameState state, dynamic customization) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -404,81 +500,187 @@ class MultiplayerGameplayScreen extends ConsumerWidget {
         ),
         const SizedBox(height: 8),
 
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: state.players.map((player) {
-              final isYou = player.userId == state.currentUserId;
-              final letters = ['B', 'I', 'N', 'G', 'O'];
+        Row(
+          children: state.players.map((player) {
+            final isYou = player.userId == state.currentUserId;
+            final isTurn = !player.isForfeited &&
+                player.userId == state.game?.currentTurnUserId;
+            final letters = ['B', 'I', 'N', 'G', 'O'];
+            final playerCount = state.players.length;
+            final isCompact = playerCount >= 4;
 
-              return Container(
-                width: 104,
-                margin: const EdgeInsets.only(right: 8),
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: AppColors.surface,
-                  borderRadius: AppRadii.roundedMd,
-                  border: isYou
-                      ? Border.all(color: AppColors.primaryCoral, width: 1.5)
-                      : null,
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Colors.black12,
-                      blurRadius: 2,
-                      offset: Offset(0, 1),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        PlayerAvatar(
-                          displayName: player.displayName,
-                          size: 24,
-                          backgroundColor: Color(
-                            int.parse(
-                              player.avatarColorHex.replaceFirst('#', '0xFF'),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+            return Expanded(
+              child: Opacity(
+                opacity: player.isForfeited ? 0.55 : 1.0,
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 2.5),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: isCompact ? 4 : 8,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius: AppRadii.roundedMd,
+                    border: player.isForfeited
+                        ? Border.all(
+                            color: AppColors.structuralBorder.withAlpha(120),
+                            width: 1,
+                          )
+                        : isYou
+                            ? Border.all(
+                                color: AppColors.primaryCoral,
+                                width: 1.5,
+                              )
+                            : isTurn
+                                ? Border.all(
+                                    color: AppColors.primaryNavy,
+                                    width: 1.2,
+                                  )
+                                : Border.all(
+                                    color: AppColors.structuralBorder,
+                                    width: 1,
+                                  ),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: AppColors.cardShadowColor,
+                        blurRadius: 2,
+                        offset: Offset(0, 1),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Stack(
+                            clipBehavior: Clip.none,
                             children: [
-                              Text(
-                                isYou ? 'You' : player.displayName,
-                                style: AppTypography.labelSm.copyWith(
-                                  fontWeight: FontWeight.w700,
-                                  color: AppColors.primaryNavy,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              Text(
-                                player.isHost ? 'HOST' : 'GUEST',
-                                style: AppTypography.labelSm.copyWith(
-                                  fontSize: 8,
-                                  fontWeight: FontWeight.w800,
-                                  color: player.isHost
-                                      ? AppColors.primaryCoral
-                                      : AppColors.textSecondary,
+                              PlayerAvatar(
+                                displayName: player.displayName,
+                                size: isCompact ? 20 : 24,
+                                avatarId: isYou ? customization.avatarId : null,
+                                hasGoldenFrame: isYou
+                                    ? customization.hasGoldenFrame
+                                    : false,
+                                backgroundColor: Color(
+                                  int.parse(
+                                    player.avatarColorHex.replaceFirst(
+                                      '#',
+                                      '0xFF',
+                                    ),
+                                  ),
                                 ),
                               ),
+                              if (!player.isForfeited)
+                                Positioned(
+                                  right: -1,
+                                  bottom: -1,
+                                  child: Container(
+                                    width: 6,
+                                    height: 6,
+                                    decoration: BoxDecoration(
+                                      color: AppColors.readyGreen,
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: Colors.white,
+                                        width: 1,
+                                      ),
+                                    ),
+                                  ),
+                                ),
                             ],
                           ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
+                          const SizedBox(width: 5),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  isYou ? 'You' : player.displayName,
+                                  style: AppTypography.labelSm.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: isCompact ? 10 : 11,
+                                    color: player.isForfeited
+                                        ? AppColors.textSecondary
+                                        : AppColors.primaryNavy,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                Wrap(
+                                  crossAxisAlignment: WrapCrossAlignment.center,
+                                  spacing: 2,
+                                  children: [
+                                    if (player.isForfeited)
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 3,
+                                          vertical: 1,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.errorRed.withAlpha(200),
+                                          borderRadius: BorderRadius.circular(3),
+                                        ),
+                                        child: const Text(
+                                          'FORFEITED',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 6.5,
+                                            fontWeight: FontWeight.w900,
+                                            letterSpacing: 0.5,
+                                          ),
+                                        ),
+                                      )
+                                    else ...[
+                                      Text(
+                                        player.isHost ? 'HOST' : 'GUEST',
+                                        style: AppTypography.labelSm.copyWith(
+                                          fontSize: 7.5,
+                                          fontWeight: FontWeight.w800,
+                                          color: player.isHost
+                                              ? AppColors.primaryCoral
+                                              : AppColors.textSecondary,
+                                        ),
+                                      ),
+                                      if (isTurn)
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 2.5,
+                                            vertical: 0.5,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: AppColors.primaryNavy,
+                                            borderRadius:
+                                                BorderRadius.circular(3),
+                                          ),
+                                          child: const Text(
+                                            'TURN',
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 6.5,
+                                              fontWeight: FontWeight.w900,
+                                            ),
+                                          ),
+                                        ),
+                                    ],
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    const SizedBox(height: 5),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
                           'Lines',
-                          style: AppTypography.labelSm.copyWith(fontSize: 10),
+                          style: AppTypography.labelSm.copyWith(
+                            fontSize: isCompact ? 9 : 10,
+                            color: AppColors.textSecondary,
+                          ),
                         ),
                         Text(
                           '${player.linesClaimed}/5',
@@ -487,36 +689,37 @@ class MultiplayerGameplayScreen extends ConsumerWidget {
                             color: player.linesClaimed > 0
                                 ? AppColors.primaryCoral
                                 : AppColors.textSecondary,
-                            fontSize: 10,
+                            fontSize: isCompact ? 9 : 10,
                           ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 4),
 
-                    // Mini BINGO Progress Badges
+                    // Mini BINGO Progress Badges (Expanded so they flex cleanly to any width)
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: List.generate(5, (idx) {
                         final isEarned = player.linesClaimed > idx;
-                        return Container(
-                          width: 15,
-                          height: 15,
-                          decoration: BoxDecoration(
-                            color: isEarned
-                                ? AppColors.primaryCoral
-                                : AppColors.surfaceContainerHigh,
-                            borderRadius: BorderRadius.circular(3),
-                          ),
-                          alignment: Alignment.center,
-                          child: Text(
-                            letters[idx],
-                            style: AppTypography.labelSm.copyWith(
-                              fontSize: 9,
-                              fontWeight: FontWeight.w800,
+                        return Expanded(
+                          child: Container(
+                            margin: const EdgeInsets.symmetric(horizontal: 1),
+                            height: isCompact ? 12 : 14,
+                            decoration: BoxDecoration(
                               color: isEarned
-                                  ? Colors.white
-                                  : AppColors.textSecondary,
+                                  ? AppColors.primaryCoral
+                                  : AppColors.surfaceContainerHigh,
+                              borderRadius: BorderRadius.circular(2.5),
+                            ),
+                            alignment: Alignment.center,
+                            child: Text(
+                              letters[idx],
+                              style: AppTypography.labelSm.copyWith(
+                                fontSize: isCompact ? 7.0 : 8.5,
+                                fontWeight: FontWeight.w800,
+                                color: isEarned
+                                    ? Colors.white
+                                    : AppColors.textSecondary,
+                              ),
                             ),
                           ),
                         );
@@ -524,9 +727,10 @@ class MultiplayerGameplayScreen extends ConsumerWidget {
                     ),
                   ],
                 ),
-              );
-            }).toList(),
-          ),
+              ),
+            ),
+          );
+        }).toList(),
         ),
       ],
     );
@@ -613,9 +817,26 @@ class MultiplayerGameplayScreen extends ConsumerWidget {
     WidgetRef ref,
     MultiplayerGameState state,
     MultiplayerGameNotifier notifier,
+    dynamic customization,
   ) {
-    return AppCard(
+    // The Stitch Velvet Daub design is the common source of truth for multiplayer gameplay.
+    // All participants (host and guests) share the canonical crisp white board appearance.
+    final theme = BoardThemeConfig.classic();
+
+    return Container(
       padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: AppRadii.roundedXl,
+        border: Border.all(color: AppColors.structuralBorder, width: 1.5),
+        boxShadow: const [
+          BoxShadow(
+            color: AppColors.cardShadowColor,
+            blurRadius: 4,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -704,12 +925,15 @@ class MultiplayerGameplayScreen extends ConsumerWidget {
               final canCall =
                   state.isMyTurn &&
                   cellState == BingoCellState.available &&
-                  !state.isMatchOver;
+                  !state.isMatchOver &&
+                  !_hasNavigated;
 
               return BingoCell(
                 number: number,
                 state: cellState,
                 isInteractive: canCall,
+                themeConfig: theme,
+                numberStyleId: customization.numberStyleId as int? ?? 5,
                 onTap: canCall
                     ? () {
                         notifier.callNumber(number);
@@ -728,24 +952,29 @@ class MultiplayerGameplayScreen extends ConsumerWidget {
     MultiplayerGameState state,
     MultiplayerGameNotifier notifier,
   ) {
-    final nextLine = state.unclaimedCompletedLines.first;
+    final hasUnclaimed = state.unclaimedCompletedLines.isNotEmpty;
+    final nextLine = hasUnclaimed ? state.unclaimedCompletedLines.first : null;
 
     return AppCard(
       padding: const EdgeInsets.all(14),
-      backgroundColor: const Color(0xFFFFFBEB),
+      backgroundColor: hasUnclaimed ? const Color(0xFFFFFBEB) : AppColors.surfaceContainerLow,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            runSpacing: 4,
             children: [
               Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Container(
                     width: 8,
                     height: 8,
-                    decoration: const BoxDecoration(
-                      color: AppColors.primaryCoral,
+                    decoration: BoxDecoration(
+                      color: hasUnclaimed ? AppColors.primaryCoral : AppColors.textMuted,
                       shape: BoxShape.circle,
                     ),
                   ),
@@ -763,15 +992,18 @@ class MultiplayerGameplayScreen extends ConsumerWidget {
                       horizontal: 6,
                       vertical: 2,
                     ),
-                    decoration: const BoxDecoration(
-                      color: AppColors.softYellow,
+                    decoration: BoxDecoration(
+                      color: hasUnclaimed ? AppColors.softYellow : AppColors.surfaceContainerHigh,
                       borderRadius: AppRadii.roundedFull,
                     ),
                     child: Text(
-                      '${state.unclaimedCompletedLines.length} READY',
+                      hasUnclaimed
+                          ? '${state.unclaimedCompletedLines.length} READY'
+                          : '0 AVAILABLE',
                       style: AppTypography.labelSm.copyWith(
                         fontSize: 9,
                         fontWeight: FontWeight.w800,
+                        color: hasUnclaimed ? AppColors.primaryNavy : AppColors.textMuted,
                       ),
                     ),
                   ),
@@ -781,7 +1013,7 @@ class MultiplayerGameplayScreen extends ConsumerWidget {
                 "AWARD: '${state.nextAwardLetter}'",
                 style: AppTypography.labelSm.copyWith(
                   fontWeight: FontWeight.w800,
-                  color: AppColors.primaryCoral,
+                  color: hasUnclaimed ? AppColors.primaryCoral : AppColors.textMuted,
                 ),
               ),
             ],
@@ -796,29 +1028,44 @@ class MultiplayerGameplayScreen extends ConsumerWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      nextLine.name,
-                      style: AppTypography.labelMd.copyWith(
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.primaryNavy,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        hasUnclaimed ? nextLine!.name : 'No Ready Lines',
+                        style: AppTypography.labelMd.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.primaryNavy,
+                        ),
                       ),
-                    ),
-                    Text(
-                      'Completed line ready for BINGO claim',
-                      style: AppTypography.bodySm.copyWith(
-                        color: AppColors.textSecondary,
-                        fontSize: 11,
+                      Text(
+                        hasUnclaimed && nextLine != null
+                            ? nextLine.coordinates
+                                .map((c) => state.userBoard
+                                    .getNumberAt(c.row, c.col)
+                                    .toString()
+                                    .padLeft(2, '0'))
+                                .join(' • ')
+                            : 'Match numbers on your board to complete a 5-in-a-row line',
+                        style: AppTypography.bodySm.copyWith(
+                          color: AppColors.textSecondary,
+                          fontSize: 11,
+                          letterSpacing: hasUnclaimed ? 0.8 : 0.0,
+                          fontWeight: hasUnclaimed ? FontWeight.w600 : FontWeight.normal,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
+                const SizedBox(width: 8),
                 ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primaryCoral,
-                    foregroundColor: Colors.white,
+                    backgroundColor: hasUnclaimed ? AppColors.primaryCoral : AppColors.surfaceContainerHigh,
+                    foregroundColor: hasUnclaimed ? Colors.white : AppColors.textMuted,
+                    elevation: hasUnclaimed ? 2 : 0,
                     shape: const RoundedRectangleBorder(
                       borderRadius: AppRadii.roundedFull,
                     ),
@@ -827,12 +1074,18 @@ class MultiplayerGameplayScreen extends ConsumerWidget {
                       vertical: 8,
                     ),
                   ),
-                  onPressed: (state.isClaiming || state.isMatchOver)
+                  onPressed: (!hasUnclaimed ||
+                          state.isClaiming ||
+                          state.isMatchOver ||
+                          _hasNavigated)
                       ? null
                       : () {
-                          notifier.claimLine(nextLine);
+                          notifier.claimLine(nextLine!);
                         },
-                  icon: const Icon(Icons.check_rounded, size: 16),
+                  icon: Icon(
+                    hasUnclaimed ? Icons.arrow_forward_rounded : Icons.lock_outline_rounded,
+                    size: 16,
+                  ),
                   label: const Text('CLAIM LINE'),
                 ),
               ],
@@ -994,15 +1247,15 @@ class MultiplayerGameplayScreen extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('Exit Match?', style: AppTypography.headlineSm),
+        title: Text('Forfeit Match?', style: AppTypography.headlineSm),
         content: Text(
-          'Leaving will forfeit your ongoing match. You will be able to rejoin if the game is still active.',
+          'Leaving will forfeit this ongoing match and record it as a defeat in your career statistics. Are you sure you want to forfeit and exit?',
           style: AppTypography.bodyMd,
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('STAY'),
+            child: const Text('CANCEL'),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -1011,7 +1264,21 @@ class MultiplayerGameplayScreen extends ConsumerWidget {
             ),
             onPressed: () {
               Navigator.pop(ctx);
-              context.go(AppRoutes.home);
+              setState(() {
+                _isForfeiting = true;
+              });
+              final notifier = ref.read(
+                multiplayerGameProvider(widget.roomId).notifier,
+              );
+              final room = ref.read(multiplayerGameProvider(widget.roomId)).room;
+              final isQuickMatch = room?.isQuickMatch == true;
+              if (isQuickMatch) {
+                _navigateToResult();
+                notifier.forfeitAndExit().catchError((_) => <String, dynamic>{});
+              } else {
+                _navigateToHomeOnForfeit();
+                notifier.forfeitAndExit().catchError((_) => <String, dynamic>{});
+              }
             },
             child: const Text('FORFEIT & EXIT'),
           ),

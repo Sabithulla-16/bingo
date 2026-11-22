@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/errors/error_mapper.dart';
 import '../../authentication/domain/auth_repository.dart';
 import '../../../data/supabase/supabase_provider.dart';
 import '../../multiplayer/data/multiplayer_repository.dart';
 import '../../multiplayer/data/multiplayer_repository_provider.dart';
+import '../../multiplayer/domain/room.dart';
 import '../domain/room_statistics.dart';
 
 enum RoomStatisticsTab { leaderboard, matchHistory }
@@ -60,6 +62,8 @@ class RoomStatisticsState {
 class RoomStatisticsNotifier extends StateNotifier<RoomStatisticsState> {
   final MultiplayerRepository _multiplayerRepository;
   final AuthRepository _authRepository;
+  StreamSubscription<List<Map<String, dynamic>>>? _historySub;
+  StreamSubscription<Room>? _roomSub;
 
   RoomStatisticsNotifier({
     required String roomId,
@@ -69,6 +73,21 @@ class RoomStatisticsNotifier extends StateNotifier<RoomStatisticsState> {
        _authRepository = authRepository,
        super(RoomStatisticsState(roomId: roomId)) {
     loadStatistics();
+
+    _historySub = _multiplayerRepository.watchRoomMatchHistory(roomId).listen((_) {
+      if (mounted) loadStatistics();
+    });
+
+    _roomSub = _multiplayerRepository.watchRoom(roomId).listen((_) {
+      if (mounted) loadStatistics();
+    });
+  }
+
+  @override
+  void dispose() {
+    _historySub?.cancel();
+    _roomSub?.cancel();
+    super.dispose();
   }
 
   Future<void> loadStatistics() async {

@@ -22,6 +22,7 @@ class SplashScreen extends ConsumerStatefulWidget {
 
 class _SplashScreenState extends ConsumerState<SplashScreen> {
   Timer? _timer;
+  bool _minDurationElapsed = false;
 
   @override
   void initState() {
@@ -36,90 +37,79 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
   }
 
   void _startSessionTimer() {
-    _timer = Timer(const Duration(milliseconds: 1500), () {
+    _timer = Timer(const Duration(milliseconds: 3800), () {
       if (!mounted) return;
-      final authState = ref.read(authStateProvider);
-      if (authState is Authenticated) {
-        context.go(AppRoutes.home);
-      } else {
-        context.go(AppRoutes.auth);
-      }
+      _minDurationElapsed = true;
+      _checkAndRoute();
     });
+  }
+
+  void _checkAndRoute() {
+    if (!_minDurationElapsed || !mounted) return;
+    final authState = ref.read(authStateProvider);
+    if (authState is AuthInitial) {
+      return; // Keep splash visible until background auth resolution finishes
+    }
+    if (authState is Authenticated || authState is AuthGuest) {
+      context.go(AppRoutes.home);
+    } else {
+      context.go(AppRoutes.auth);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<AppAuthState>(authStateProvider, (prev, next) {
+      if (_minDurationElapsed) {
+        _checkAndRoute();
+      }
+    });
+
     return ResponsiveScaffold(
       scrollable: false,
-      body: Stack(
-        children: [
-          // Ambient blur circles from Stitch design
-          Positioned(
-            top: -40,
-            left: -40,
-            child: Container(
-              width: 180,
-              height: 180,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppColors.lightLavender.withAlpha(128),
-              ),
+      backgroundColor: AppColors.background,
+      body: SafeArea(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const SizedBox(height: 20),
+            // Center Stage
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              children: const [
+                SplashAnimatedBingoBoard(size: 248),
+                SizedBox(height: 28),
+                BingoLogo(fontSize: 42, showTagline: true),
+              ],
             ),
-          ),
-          Positioned(
-            bottom: -50,
-            right: -50,
-            child: Container(
-              width: 200,
-              height: 200,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppColors.primaryCoral.withAlpha(38),
-              ),
-            ),
-          ),
-          Column(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const SizedBox(height: 20),
-              // Center Stage
-              Column(
+            // Footer Loading State
+            Padding(
+              padding: const EdgeInsets.only(bottom: 32.0),
+              child: Column(
                 mainAxisSize: MainAxisSize.min,
-                children: const [
-                  SplashAnimatedBingoBoard(size: 248),
-                  SizedBox(height: 28),
-                  BingoLogo(fontSize: 42, showTagline: true),
+                children: [
+                  const AppLoadingIndicator(dotSize: 10),
+                  const SizedBox(height: 14),
+                  Text(
+                    'PREPARING YOUR GAME',
+                    style: AppTypography.labelSm.copyWith(
+                      color: AppColors.textPrimary,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Welcome to BINGO',
+                    style: AppTypography.bodySm.copyWith(
+                      color: AppColors.textMuted,
+                    ),
+                  ),
                 ],
               ),
-              // Footer Loading State
-              Padding(
-                padding: const EdgeInsets.only(bottom: 32.0),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const AppLoadingIndicator(dotSize: 10),
-                    const SizedBox(height: 14),
-                    Text(
-                      'PREPARING YOUR GAME',
-                      style: AppTypography.labelSm.copyWith(
-                        color: AppColors.textPrimary,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 1.2,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Welcome to BINGO',
-                      style: AppTypography.bodySm.copyWith(
-                        color: AppColors.textMuted,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ],
+            ),
+          ],
+        ),
       ),
     );
   }

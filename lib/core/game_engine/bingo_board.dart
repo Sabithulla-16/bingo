@@ -15,6 +15,12 @@ class BingoBoard {
     return BingoBoard(List<int>.filled(25, 0));
   }
 
+  /// Creates a board directly from a flat 25-number list.
+  factory BingoBoard.fromList(List<int> numbers) {
+    assert(numbers.length == 25, 'Board list must contain exactly 25 numbers');
+    return BingoBoard(List<int>.from(numbers));
+  }
+
   /// Creates a board from a 5x5 2D matrix.
   factory BingoBoard.fromMatrix(List<List<int>> matrix) {
     assert(matrix.length == 5, 'Matrix must have 5 rows');

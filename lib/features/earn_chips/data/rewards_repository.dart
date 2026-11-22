@@ -46,6 +46,12 @@ class RewardsRepositoryImpl implements RewardsRepository {
   String get _userId => _authRepo.currentUserId ?? 'guest';
   bool get _isOnline => _supabase != null && _supabase.auth.currentUser != null;
 
+  DateTime get _nowKolkata =>
+      DateTime.now().toUtc().add(const Duration(hours: 5, minutes: 30));
+
+  String _formatKolkataDate(DateTime dt) =>
+      '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
+
   @override
   Stream<DailyCheckinInfo> watchDailyCheckin() => _checkinController.stream;
 
@@ -54,36 +60,82 @@ class RewardsRepositoryImpl implements RewardsRepository {
 
   @override
   Future<DailyCheckinInfo> getDailyCheckin() async {
-    final now = DateTime.now();
-    final todayStr =
-        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+    if (_isOnline) {
+      try {
+        final res = await _supabase!.rpc('rpc_get_daily_checkin_status');
+        if (res is Map<String, dynamic>) {
+          final isClaimed = res['is_claimed_today'] as bool? ?? false;
+          final streak = (res['streak'] as num?)?.toInt() ?? 1;
+          final todayReward = (res['today_reward'] as num?)?.toInt() ??
+              DailyCheckinInfo.defaultDayRewards[(streak - 1).clamp(0, 6)];
+          final claimedDays = (res['claimed_days'] as List?)
+                  ?.map((e) => (e as num).toInt())
+                  .toList() ??
+              [];
+          final secondsUntilReset =
+              (res['seconds_until_reset'] as num?)?.toInt() ?? 86400;
+
+          final info = DailyCheckinInfo(
+            streak: streak,
+            isClaimedToday: isClaimed,
+            todayReward: todayReward,
+            claimedDays: claimedDays,
+            secondsUntilReset: secondsUntilReset,
+          );
+          _checkinController.add(info);
+          return info;
+        }
+      } catch (e, st) {
+        ErrorLogger.logUnhandled(e, st, source: 'getDailyCheckin_supabase');
+      }
+    }
+
+    // Local / offline fallback with strict Asia/Kolkata date and streak rules
+    final nowK = _nowKolkata;
+    final todayStr = _formatKolkataDate(nowK);
+    final yestStr = _formatKolkataDate(nowK.subtract(const Duration(days: 1)));
 
     final prefs = await SharedPreferences.getInstance();
     final lastCheckin =
         prefs.getString('${_prefCheckinDateKey}_$_userId') ?? '';
-    int streak =
-        prefs.getInt('${_prefStreakKey}_$_userId') ??
-        4; // Stitch default: 4 of 7
+    final savedStreak = prefs.getInt('${_prefStreakKey}_$_userId') ?? 1;
 
-    final isClaimedToday = lastCheckin == todayStr;
+    final bool isClaimedToday = lastCheckin == todayStr;
+    int currentStreak = 1;
+    final List<int> claimedDays = <int>[];
 
-    // Reset countdown (midnight)
-    final tomorrowMidnight = DateTime(now.year, now.month, now.day + 1);
-    final secondsUntilReset = tomorrowMidnight.difference(now).inSeconds;
+    if (isClaimedToday) {
+      currentStreak = savedStreak;
+      for (int i = 1; i <= currentStreak; i++) {
+        claimedDays.add(i);
+      }
+    } else if (lastCheckin == yestStr) {
+      // Consecutive calendar day
+      currentStreak = (savedStreak % 7) + 1;
+      for (int i = 1; i < currentStreak; i++) {
+        claimedDays.add(i);
+      }
+    } else {
+      // Missed day or first check-in
+      currentStreak = 1;
+    }
+
+    // Reset countdown (midnight in Kolkata)
+    final tomorrowMidnightKolkata = DateTime.utc(
+      nowK.year,
+      nowK.month,
+      nowK.day + 1,
+    ).subtract(const Duration(hours: 5, minutes: 30));
+    final secondsUntilReset = tomorrowMidnightKolkata
+        .difference(DateTime.now().toUtc())
+        .inSeconds
+        .clamp(0, 86400);
 
     final todayReward =
-        DailyCheckinInfo.defaultDayRewards[(streak - 1).clamp(0, 6)];
-
-    final claimedDays = <int>[];
-    for (int i = 1; i < streak; i++) {
-      claimedDays.add(i);
-    }
-    if (isClaimedToday) {
-      claimedDays.add(streak);
-    }
+        DailyCheckinInfo.defaultDayRewards[(currentStreak - 1).clamp(0, 6)];
 
     final info = DailyCheckinInfo(
-      streak: streak,
+      streak: currentStreak,
       isClaimedToday: isClaimedToday,
       todayReward: todayReward,
       claimedDays: claimedDays,
@@ -101,22 +153,49 @@ class RewardsRepositoryImpl implements RewardsRepository {
       throw StateError('You have already claimed your daily check-in today.');
     }
 
-    final now = DateTime.now();
-    final todayStr =
-        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-
-    final reward = info.todayReward;
+    final nowK = _nowKolkata;
+    final todayStr = _formatKolkataDate(nowK);
+    final yestStr = _formatKolkataDate(nowK.subtract(const Duration(days: 1)));
 
     if (_isOnline) {
       try {
-        await _supabase!.rpc(
-          'rpc_claim_daily_checkin',
-          params: {'p_day_index': info.streak, 'p_reward_amount': reward},
-        );
+        final res = await _supabase!.rpc('rpc_claim_daily_checkin');
+        int reward = info.todayReward;
+        if (res is Map<String, dynamic> && res['reward_amount'] != null) {
+          reward = (res['reward_amount'] as num).toInt();
+        }
+        await _addLifetimeChips(reward);
+        await getDailyCheckin();
+        return reward;
       } catch (e, st) {
         ErrorLogger.logUnhandled(e, st, source: 'claimDailyCheckin_supabase');
+        final errorMsg = e.toString().toLowerCase();
+        if (errorMsg.contains('already claimed') ||
+            errorMsg.contains('duplicate')) {
+          await getDailyCheckin();
+          throw StateError(
+            'You have already claimed your daily check-in today.',
+          );
+        }
+        rethrow;
       }
     }
+
+    // Local / Offline fallback logic
+    final prefs = await SharedPreferences.getInstance();
+    final lastCheckin =
+        prefs.getString('${_prefCheckinDateKey}_$_userId') ?? '';
+    final savedStreak = prefs.getInt('${_prefStreakKey}_$_userId') ?? 1;
+
+    int newStreak = 1;
+    if (lastCheckin == yestStr) {
+      newStreak = (savedStreak % 7) + 1;
+    } else {
+      newStreak = 1;
+    }
+
+    final reward =
+        DailyCheckinInfo.defaultDayRewards[(newStreak - 1).clamp(0, 6)];
 
     // Credit profile chips
     final profile = await _profileRepo.getProfile(_userId);
@@ -126,8 +205,8 @@ class RewardsRepositoryImpl implements RewardsRepository {
     }
 
     // Save locally
-    final prefs = await SharedPreferences.getInstance();
     await prefs.setString('${_prefCheckinDateKey}_$_userId', todayStr);
+    await prefs.setInt('${_prefStreakKey}_$_userId', newStreak);
     await _addLifetimeChips(reward);
 
     await getDailyCheckin();
@@ -138,16 +217,72 @@ class RewardsRepositoryImpl implements RewardsRepository {
   Future<List<MatchRewardTask>> getTasks() async {
     final prefs = await SharedPreferences.getInstance();
 
+    Set<String> backendClaimedTasks = {};
+    if (_isOnline) {
+      try {
+        final claimsRes = await _supabase!
+            .from('reward_claims')
+            .select('task_id')
+            .eq('user_id', _userId);
+        backendClaimedTasks =
+            claimsRes.map((c) => c['task_id'].toString()).toSet();
+      } catch (e, st) {
+        ErrorLogger.logUnhandled(e, st, source: 'getTasks_claims_supabase');
+      }
+    }
+
+    final matchClaimed =
+        backendClaimedTasks.contains('complete_match') ||
+        (prefs.getBool('${_prefTaskKeyPrefix}complete_match_claimed_$_userId') ??
+            false);
     final winClaimed =
-        prefs.getBool('${_prefTaskKeyPrefix}win_claimed_$_userId') ?? false;
-    final matchPlayed =
-        prefs.getInt('${_prefTaskKeyPrefix}match_played_$_userId') ?? 3;
-    final matchWins =
-        prefs.getInt('${_prefTaskKeyPrefix}match_wins_$_userId') ?? 2;
-    final roomWins =
-        prefs.getInt('${_prefTaskKeyPrefix}room_wins_$_userId') ?? 2;
-    final friendMatches =
-        prefs.getInt('${_prefTaskKeyPrefix}friend_matches_$_userId') ?? 1;
+        backendClaimedTasks.contains('win_match') ||
+        (prefs.getBool('${_prefTaskKeyPrefix}win_match_claimed_$_userId') ??
+            false) ||
+        (prefs.getBool('${_prefTaskKeyPrefix}win_claimed_$_userId') ?? false);
+    final multiClaimed =
+        backendClaimedTasks.contains('play_multiplayer') ||
+        (prefs.getBool(
+              '${_prefTaskKeyPrefix}play_multiplayer_claimed_$_userId',
+            ) ??
+            false);
+    final roomWinsClaimed =
+        backendClaimedTasks.contains('room_champion') ||
+        (prefs.getBool('${_prefTaskKeyPrefix}room_champion_claimed_$_userId') ??
+            false);
+    final friendsClaimed =
+        backendClaimedTasks.contains('play_with_friends') ||
+        (prefs.getBool(
+              '${_prefTaskKeyPrefix}play_with_friends_claimed_$_userId',
+            ) ??
+            false);
+
+    int matchPlayed =
+        prefs.getInt('${_prefTaskKeyPrefix}match_played_$_userId') ?? 0;
+    int matchWins =
+        prefs.getInt('${_prefTaskKeyPrefix}match_wins_$_userId') ?? 0;
+    int multiPlayed =
+        prefs.getInt('${_prefTaskKeyPrefix}multi_played_$_userId') ?? 0;
+    int roomWins =
+        prefs.getInt('${_prefTaskKeyPrefix}room_wins_$_userId') ?? 0;
+    int friendMatches =
+        prefs.getInt('${_prefTaskKeyPrefix}friend_matches_$_userId') ?? 0;
+
+    if (_isOnline) {
+      try {
+        final statsRes = await _supabase!
+            .from('player_statistics')
+            .select('total_matches, wins')
+            .eq('user_id', _userId)
+            .maybeSingle();
+        if (statsRes != null) {
+          final sMatches = (statsRes['total_matches'] as num?)?.toInt() ?? 0;
+          final sWins = (statsRes['wins'] as num?)?.toInt() ?? 0;
+          if (sMatches > matchPlayed) matchPlayed = sMatches;
+          if (sWins > matchWins) matchWins = sWins;
+        }
+      } catch (_) {}
+    }
 
     final tasks = [
       // Match Rewards
@@ -159,7 +294,11 @@ class RewardsRepositoryImpl implements RewardsRepository {
         rewardChips: 20,
         current: matchPlayed.clamp(0, 3),
         target: 3,
-        status: RewardTaskStatus.claimed, // Default claimed from spec
+        status: matchClaimed
+            ? RewardTaskStatus.claimed
+            : (matchPlayed >= 3
+                  ? RewardTaskStatus.readyToClaim
+                  : RewardTaskStatus.inProgress),
       ),
       MatchRewardTask(
         id: 'win_match',
@@ -171,7 +310,9 @@ class RewardsRepositoryImpl implements RewardsRepository {
         target: 1,
         status: winClaimed
             ? RewardTaskStatus.claimed
-            : RewardTaskStatus.readyToClaim,
+            : (matchWins >= 1
+                  ? RewardTaskStatus.readyToClaim
+                  : RewardTaskStatus.inProgress),
       ),
       MatchRewardTask(
         id: 'play_multiplayer',
@@ -179,9 +320,13 @@ class RewardsRepositoryImpl implements RewardsRepository {
         category: 'match',
         description: 'Complete any live synchronized match',
         rewardChips: 20,
-        current: 0,
+        current: multiPlayed.clamp(0, 1),
         target: 1,
-        status: RewardTaskStatus.inProgress,
+        status: multiClaimed
+            ? RewardTaskStatus.claimed
+            : (multiPlayed >= 1
+                  ? RewardTaskStatus.readyToClaim
+                  : RewardTaskStatus.inProgress),
       ),
 
       // Multiplayer Rewards
@@ -193,7 +338,11 @@ class RewardsRepositoryImpl implements RewardsRepository {
         rewardChips: 100,
         current: roomWins.clamp(0, 3),
         target: 3,
-        status: RewardTaskStatus.inProgress,
+        status: roomWinsClaimed
+            ? RewardTaskStatus.claimed
+            : (roomWins >= 3
+                  ? RewardTaskStatus.readyToClaim
+                  : RewardTaskStatus.inProgress),
       ),
       MatchRewardTask(
         id: 'play_with_friends',
@@ -203,7 +352,11 @@ class RewardsRepositoryImpl implements RewardsRepository {
         rewardChips: 25,
         current: friendMatches.clamp(0, 2),
         target: 2,
-        status: RewardTaskStatus.inProgress,
+        status: friendsClaimed
+            ? RewardTaskStatus.claimed
+            : (friendMatches >= 2
+                  ? RewardTaskStatus.readyToClaim
+                  : RewardTaskStatus.inProgress),
       ),
     ];
 
@@ -219,21 +372,61 @@ class RewardsRepositoryImpl implements RewardsRepository {
       orElse: () => throw StateError('Task $taskId not found'),
     );
 
-    if (task.status.isClaimed) {
+    final prefs = await SharedPreferences.getInstance();
+    final isAlreadyClaimed =
+        (prefs.getBool('$_prefTaskKeyPrefix${taskId}_claimed_$_userId') ??
+            false) ||
+        (taskId == 'win_match' &&
+            (prefs.getBool('${_prefTaskKeyPrefix}win_claimed_$_userId') ??
+                false));
+
+    if (task.status.isClaimed || isAlreadyClaimed) {
       throw StateError('This reward has already been claimed.');
     }
 
     final reward = task.rewardChips;
 
-    // Credit chips
-    final profile = await _profileRepo.getProfile(_userId);
-    if (profile != null) {
-      final updatedChips = profile.chips + reward;
-      await _profileRepo.upsertProfile(profile.copyWith(chips: updatedChips));
+    if (_isOnline) {
+      try {
+        await _supabase!.rpc(
+          'rpc_claim_reward_task',
+          params: {'p_task_id': taskId, 'p_reward_amount': reward},
+        );
+      } catch (e, st) {
+        ErrorLogger.logUnhandled(e, st, source: 'claimTask_supabase');
+        final errorMsg = e.toString().toLowerCase();
+        if (errorMsg.contains('already claimed') ||
+            errorMsg.contains('duplicate')) {
+          await prefs.setBool(
+            '$_prefTaskKeyPrefix${taskId}_claimed_$_userId',
+            true,
+          );
+          if (taskId == 'win_match') {
+            await prefs.setBool(
+              '${_prefTaskKeyPrefix}win_claimed_$_userId',
+              true,
+            );
+          }
+          await getTasks();
+          throw StateError('This reward has already been claimed.');
+        }
+      }
     }
 
-    final prefs = await SharedPreferences.getInstance();
+    // Credit chips locally ONLY if offline.
+    // When online, rpc_claim_reward_task atomically credited chips in Supabase.
+    if (!_isOnline) {
+      final profile = await _profileRepo.getProfile(_userId);
+      if (profile != null) {
+        final updatedChips = profile.chips + reward;
+        await _profileRepo.upsertProfile(profile.copyWith(chips: updatedChips));
+      }
+    }
+
     await prefs.setBool('$_prefTaskKeyPrefix${taskId}_claimed_$_userId', true);
+    if (taskId == 'win_match') {
+      await prefs.setBool('${_prefTaskKeyPrefix}win_claimed_$_userId', true);
+    }
     await _addLifetimeChips(reward);
 
     await getTasks();
@@ -263,6 +456,13 @@ class RewardsRepositoryImpl implements RewardsRepository {
     }
 
     if (isMultiplayer) {
+      final currentMulti =
+          prefs.getInt('${_prefTaskKeyPrefix}multi_played_$_userId') ?? 0;
+      await prefs.setInt(
+        '${_prefTaskKeyPrefix}multi_played_$_userId',
+        currentMulti + 1,
+      );
+
       if (isWinner) {
         final currentRoomWins =
             prefs.getInt('${_prefTaskKeyPrefix}room_wins_$_userId') ?? 0;
@@ -287,7 +487,7 @@ class RewardsRepositoryImpl implements RewardsRepository {
     final profile = await _profileRepo.getProfile(_userId);
     final chips = profile?.chips ?? 500;
     final prefs = await SharedPreferences.getInstance();
-    final lifetime = prefs.getInt('${_prefLifetimeKey}_$_userId') ?? 1450;
+    final lifetime = prefs.getInt('${_prefLifetimeKey}_$_userId') ?? chips;
 
     final checkin = await getDailyCheckin();
     final tasks = await getTasks();
@@ -304,21 +504,22 @@ class RewardsRepositoryImpl implements RewardsRepository {
 
     final completedCount =
         tasks.where((t) => t.status.isClaimed).length +
-        (checkin.isClaimedToday ? 1 : 0) +
-        16; // 18 / 24
+        (checkin.isClaimedToday ? 1 : 0);
 
     return WalletOverviewMetrics(
       balance: chips,
       availableRewards: available,
       lifetimeEarned: lifetime,
       tasksCompleted: completedCount,
-      totalTasks: 24,
+      totalTasks: tasks.length + 1,
     );
   }
 
   Future<void> _addLifetimeChips(int amount) async {
     final prefs = await SharedPreferences.getInstance();
-    final current = prefs.getInt('${_prefLifetimeKey}_$_userId') ?? 1450;
+    final profile = await _profileRepo.getProfile(_userId);
+    final chips = profile?.chips ?? 500;
+    final current = prefs.getInt('${_prefLifetimeKey}_$_userId') ?? (chips - amount);
     await prefs.setInt('${_prefLifetimeKey}_$_userId', current + amount);
   }
 }

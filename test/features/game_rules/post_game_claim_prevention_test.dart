@@ -173,14 +173,19 @@ void main() {
           auth.currentProfile = guest;
 
           // Player B attempts to claim a line on the completed game
-          final claimResult = await repo.claimLine(
-            gameId: game.id,
-            lineType: 'row_0',
-            numbers: [1, 2, 3, 4, 5],
+          // VERIFY: Backend rejects the claim with MATCH_ALREADY_COMPLETED!
+          expect(
+            () => repo.claimLine(
+              gameId: game.id,
+              lineType: 'row_0',
+              numbers: [1, 2, 3, 4, 5],
+            ),
+            throwsA(isA<StateError>().having(
+              (e) => e.message,
+              'message',
+              contains('MATCH_ALREADY_COMPLETED'),
+            )),
           );
-
-          // VERIFY: Backend rejects the claim!
-          expect(claimResult, isFalse);
 
           // Verify winner remains player_a
           final reloadedGame = repo.localGamesForTesting[game.id]!;

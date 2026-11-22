@@ -87,4 +87,25 @@ class ErrorLogger {
       );
     }
   }
+
+  /// Securely logs diagnostic info (e.g. auth flow, state transitions)
+  /// with sensitive tokens/passwords automatically redacted.
+  static void logInfo(
+    String message, {
+    String category = 'bingo.info',
+    Map<String, dynamic>? details,
+  }) {
+    final sanitizedMessage = sanitize(message);
+    final sanitizedDetails = details?.map(
+      (key, value) => MapEntry(key, sanitize(value.toString())),
+    );
+
+    if (kDebugMode) {
+      developer.log(
+        'ℹ️ [$category] $sanitizedMessage',
+        name: category,
+        error: sanitizedDetails,
+      );
+    }
+  }
 }

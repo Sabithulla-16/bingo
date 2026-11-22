@@ -12,6 +12,9 @@ abstract class AuthRepository {
   /// Checks if there is an active persisted session.
   bool get isAuthenticated;
 
+  /// Checks if current session is an anonymous guest.
+  bool get isGuest;
+
   /// Register a new account with email, password, and display name.
   Future<PlayerProfile> signUpWithEmail({
     required String email,

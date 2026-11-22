@@ -8,11 +8,14 @@ import '../../../app/theme/app_typography.dart';
 import '../../../core/game_engine/bingo_engine.dart';
 import '../../../core/game_engine/winning_line.dart';
 import '../../../core/services/feedback_service.dart';
+import '../../../core/theme/board_theme_config.dart';
 import '../../../core/widgets/app_card.dart';
 import '../../../core/widgets/bingo_board_grid.dart';
 import '../../../core/widgets/confirmation_dialog.dart';
+import '../../../core/widgets/player_avatar.dart';
 import '../../../core/widgets/primary_button.dart';
 import '../../../core/widgets/responsive_scaffold.dart';
+import '../../store/data/store_repository.dart';
 import '../presentation/single_player_game_notifier.dart';
 
 /// Single Player Gameplay Screen (Stitch Screen ID: `c35c79a49c804f4aad87a3ae72090e66`)
@@ -143,7 +146,18 @@ class _SinglePlayerGameplayScreenState
 
       if ((isCompleted && !wasCompleted) ||
           (anyReachedBingo && !prevAnyReachedBingo)) {
-        ref.read(feedbackServiceProvider).victoryBingo();
+        if (next.winner == GameWinner.player) {
+          ref.read(feedbackServiceProvider).victoryBingo();
+        } else {
+          ref.read(feedbackServiceProvider).lightTap();
+        }
+
+        // Server/Engine authoritative automatic navigation to Single Player Result Screen
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (context.mounted) {
+            context.go(AppRoutes.singlePlayerResultPath(next.gameId));
+          }
+        });
       }
 
       // 2. Line Strike Sound: Whenever player or bot successfully claims a winning line
@@ -168,6 +182,7 @@ class _SinglePlayerGameplayScreenState
     });
 
     final gameState = ref.watch(singlePlayerGameProvider);
+    final customization = ref.watch(playerCustomizationProvider);
 
     // If state is not initialized (e.g. direct deep link), fallback gracefully
     if (gameState == null) {
@@ -195,6 +210,13 @@ class _SinglePlayerGameplayScreenState
 
     // Check if match ended
     final hasWinner = gameState.winner != GameWinner.none;
+    if (hasWinner) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (context.mounted) {
+          context.go(AppRoutes.singlePlayerResultPath(gameState.gameId));
+        }
+      });
+    }
 
     return ResponsiveScaffold(
       body: Padding(
@@ -302,21 +324,12 @@ class _SinglePlayerGameplayScreenState
                       children: [
                         Row(
                           children: [
-                            Container(
-                              width: 28,
-                              height: 28,
-                              decoration: const BoxDecoration(
-                                color: AppColors.primaryCoral,
-                                shape: BoxShape.circle,
-                              ),
-                              alignment: Alignment.center,
-                              child: Text(
-                                'Y',
-                                style: AppTypography.labelMd.copyWith(
-                                  color: AppColors.textLight,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
+                            PlayerAvatar(
+                              displayName: 'YOU',
+                              avatarId: customization.avatarId,
+                              hasGoldenFrame: customization.hasGoldenFrame,
+                              size: 28,
+                              backgroundColor: AppColors.primaryCoral,
                             ),
                             const SizedBox(width: 8),
                             Column(
@@ -519,6 +532,8 @@ class _SinglePlayerGameplayScreenState
               calledNumbers: calledNumbers.toSet(),
               claimedNumbers: _getClaimedNumbers(playerEngine),
               completedUnclaimedNumbers: _getUnclaimedNumbers(playerEngine),
+              themeConfig: BoardThemeConfig.fromId(customization.boardThemeId),
+              numberStyleId: customization.numberStyleId,
               onNumberTapped: (number) {
                 if (gameState.isPlayerTurn &&
                     !gameState.isComputerThinking &&

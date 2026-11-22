@@ -9,11 +9,14 @@ import '../../../app/theme/app_typography.dart';
 import '../../../core/widgets/app_card.dart';
 import '../../../core/widgets/app_loading_indicator.dart';
 import '../../../core/widgets/confirmation_dialog.dart';
+import '../../../core/widgets/connection_status_banner.dart';
 import '../../../core/widgets/player_avatar.dart';
 import '../../../core/widgets/primary_button.dart';
 import '../../../core/widgets/responsive_scaffold.dart';
 import '../../../core/widgets/secondary_button.dart';
 import '../../../core/widgets/status_badge.dart';
+import '../../../data/supabase/supabase_provider.dart';
+import '../../store/data/store_repository.dart';
 import '../domain/room.dart';
 import '../presentation/multiplayer_lobby_notifier.dart';
 
@@ -65,11 +68,45 @@ class MultiplayerLobbyScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final lobbyState = ref.watch(multiplayerLobbyProvider(roomId));
 
-    // Listen for room status transitions (e.g. host starts game -> 'preparing')
+    // Listen for room status transitions, host removal, and room closure
     ref.listen<MultiplayerLobbyState>(multiplayerLobbyProvider(roomId), (
       prev,
       next,
     ) {
+      if (next.wasRemovedByHost && prev?.wasRemovedByHost != true) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('The host removed you from this room.'),
+            backgroundColor: AppColors.errorRed,
+            behavior: SnackBarBehavior.floating,
+            duration: Duration(seconds: 4),
+          ),
+        );
+        if (context.canPop()) {
+          context.pop();
+        } else {
+          context.go(AppRoutes.multiplayerMenu);
+        }
+        return;
+      }
+
+      if (next.wasClosedByHost && prev?.wasClosedByHost != true) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('The host closed this room.'),
+            backgroundColor: AppColors.primaryNavy,
+            behavior: SnackBarBehavior.floating,
+            duration: Duration(seconds: 4),
+          ),
+        );
+        if (context.canPop()) {
+          context.pop();
+        } else {
+          context.go(AppRoutes.multiplayerMenu);
+        }
+        return;
+      }
+
       if (next.room != null && next.room!.status == RoomStatus.preparing) {
         context.pushReplacement(AppRoutes.multiplayerBoardPrepPath(roomId));
       }
@@ -132,6 +169,7 @@ class MultiplayerLobbyScreen extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            const ConnectionStatusBanner(),
             // Center Room Code & Copy Banner
             AppCard(
               padding: const EdgeInsets.all(16),
@@ -300,7 +338,9 @@ class MultiplayerLobbyScreen extends ConsumerWidget {
               PrimaryButton(
                 label: 'Start Game',
                 icon: Icons.play_arrow_rounded,
-                onPressed: lobbyState.canStartGame
+                isLoading: lobbyState.isStartingGame,
+                onPressed:
+                    (lobbyState.canStartGame && !lobbyState.isStartingGame)
                     ? () => ref
                           .read(multiplayerLobbyProvider(roomId).notifier)
                           .startGame()
@@ -312,7 +352,7 @@ class MultiplayerLobbyScreen extends ConsumerWidget {
                     ? 'All players ready! Tap Start Game to enter board preparation.'
                     : players.length < 2
                     ? 'Waiting for at least 1 more player to join...'
-                    : 'Waiting for all players to toggle Ready ($readyCount/${players.length} ready)',
+                    : 'Waiting for ${players.where((p) => !p.isReady).map((p) => p.displayName).join(", ")} to toggle Ready ($readyCount/${players.length} ready)',
                 textAlign: TextAlign.center,
                 style: AppTypography.bodySm.copyWith(
                   color: AppColors.textSecondary,
@@ -327,9 +367,12 @@ class MultiplayerLobbyScreen extends ConsumerWidget {
                 icon: lobbyState.isCurrentUserReady
                     ? Icons.close_rounded
                     : Icons.check_rounded,
-                onPressed: () => ref
-                    .read(multiplayerLobbyProvider(roomId).notifier)
-                    .toggleReady(),
+                isLoading: lobbyState.isTogglingReady,
+                onPressed: lobbyState.isTogglingReady
+                    ? null
+                    : () => ref
+                          .read(multiplayerLobbyProvider(roomId).notifier)
+                          .toggleReady(),
               ),
               const SizedBox(height: 8),
               Text(
@@ -417,6 +460,10 @@ class MultiplayerLobbyScreen extends ConsumerWidget {
     }
 
     // Occupied Slot
+    final currentUserId = ref.read(currentProfileProvider)?.id;
+    final isYou = player.userId == currentUserId;
+    final customization = ref.watch(playerCustomizationProvider);
+
     return AppCard(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       child: Row(
@@ -427,6 +474,8 @@ class MultiplayerLobbyScreen extends ConsumerWidget {
             ),
             displayName: player.displayName,
             size: 38,
+            avatarId: isYou ? customization.avatarId : null,
+            hasGoldenFrame: isYou ? customization.hasGoldenFrame : false,
           ),
           const SizedBox(width: 14),
           Expanded(

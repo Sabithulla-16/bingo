@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_radii.dart';
+import '../theme/board_theme_config.dart';
 import 'bingo_cell.dart';
 
-/// Reusable 5x5 Bingo Board matrix grid.
+/// Reusable 5x5 Bingo Board matrix grid supporting dynamic themes and typography.
 class BingoBoardGrid extends StatelessWidget {
   final List<int> matrix;
   final Set<int> calledNumbers;
@@ -11,6 +12,8 @@ class BingoBoardGrid extends StatelessWidget {
   final Set<int> completedUnclaimedNumbers;
   final ValueChanged<int>? onNumberTapped;
   final bool isInteractive;
+  final BoardThemeConfig? themeConfig;
+  final int? numberStyleId;
 
   const BingoBoardGrid({
     super.key,
@@ -20,6 +23,8 @@ class BingoBoardGrid extends StatelessWidget {
     this.completedUnclaimedNumbers = const {},
     this.onNumberTapped,
     this.isInteractive = true,
+    this.themeConfig,
+    this.numberStyleId,
   }) : assert(
          matrix.length == 25,
          'Bingo matrix must contain exactly 25 numbers',
@@ -40,12 +45,14 @@ class BingoBoardGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = themeConfig ?? BoardThemeConfig.classic();
+
     return Container(
       padding: const EdgeInsets.all(8.0),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: theme.boardBackground,
         borderRadius: AppRadii.roundedXl,
-        border: Border.all(color: AppColors.structuralBorder, width: 1.5),
+        border: Border.all(color: theme.boardBorder, width: 1.5),
         boxShadow: const [
           BoxShadow(
             color: AppColors.cardShadowColor,
@@ -72,6 +79,8 @@ class BingoBoardGrid extends StatelessWidget {
             number: number,
             state: state,
             isInteractive: isInteractive,
+            themeConfig: theme,
+            numberStyleId: numberStyleId,
             onTap: onNumberTapped != null
                 ? () => onNumberTapped!(number)
                 : null,

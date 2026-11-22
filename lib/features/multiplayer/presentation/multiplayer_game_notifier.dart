@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/errors/error_mapper.dart';
 import '../../../core/game_engine/bingo_board.dart';
@@ -44,8 +45,12 @@ class MultiplayerGameState {
     this.errorMessage,
   });
 
+  bool get isCurrentPlayerForfeited => currentUserState?.isForfeited == true;
+
   bool get isMyTurn {
-    if (game == null || currentUserId == null) return false;
+    if (game == null || currentUserId == null || isCurrentPlayerForfeited) {
+      return false;
+    }
     return game!.currentTurnUserId == currentUserId &&
         game!.status == MultiplayerGameStatus.inProgress;
   }
@@ -58,15 +63,27 @@ class MultiplayerGameState {
     }
   }
 
-  int get myLinesClaimedCount => claimedLines.length;
+  int get myLinesClaimedCount {
+    final serverCount = currentUserState?.linesClaimed ?? 0;
+    return max(claimedLines.length, serverCount);
+  }
 
   bool get hasWon => myLinesClaimedCount >= 5;
+
+  String claimedLetterForCount(int count) {
+    const letters = ['B', 'I', 'N', 'G', 'O'];
+    if (count >= 1 && count <= 5) {
+      return letters[count - 1];
+    }
+    return 'BINGO!';
+  }
 
   /// Authoritative check if the round has ended or a winner has emerged.
   bool get isMatchOver {
     if (game == null) return false;
     return game!.status == MultiplayerGameStatus.completed ||
         game!.winnerUserId != null ||
+        room?.status == RoomStatus.completed ||
         hasWon ||
         players.any((p) => p.isWinner || p.linesClaimed >= 5);
   }
@@ -164,6 +181,7 @@ class MultiplayerGameNotifier extends StateNotifier<MultiplayerGameState> {
   final MultiplayerRepository repository;
   final AuthRepository authRepo;
 
+  StreamSubscription<Room>? _roomSub;
   StreamSubscription<MultiplayerGame>? _gameSub;
   StreamSubscription<List<MultiplayerPlayerState>>? _playersSub;
   Timer? _turnCountdownTimer;
@@ -185,6 +203,7 @@ class MultiplayerGameNotifier extends StateNotifier<MultiplayerGameState> {
   @override
   void dispose() {
     _turnCountdownTimer?.cancel();
+    _roomSub?.cancel();
     _gameSub?.cancel();
     _playersSub?.cancel();
     super.dispose();
@@ -196,9 +215,45 @@ class MultiplayerGameNotifier extends StateNotifier<MultiplayerGameState> {
       final room = await repository.getRoom(roomId);
       final game = await repository.getGameForRoom(roomId);
 
+      // Load user's private confirmed board from board preparation
+      BingoBoard board = state.userBoard;
+      if (currentUserId != null) {
+        final savedNumbers = await repository.getPlayerBoard(
+          gameId: game.id,
+          userId: currentUserId,
+        );
+        if (savedNumbers != null && savedNumbers.length == 25) {
+          board = BingoBoard.fromList(savedNumbers);
+        }
+      }
+
+      // Authoritatively fetch all active match participants (supporting 2, 3, or 4 players)
+      final initialPlayers = await repository.getGamePlayers(game.id);
+
+      final myInitialState = initialPlayers
+          .where((p) => p.userId == currentUserId)
+          .firstOrNull;
+      final Set<WinningLine> initialClaimed = {};
+      if (myInitialState != null) {
+        for (final raw in myInitialState.claimedLineTypes) {
+          final matched = WinningLine.findLine(raw);
+          if (matched != null) initialClaimed.add(matched);
+        }
+      }
+
+      final initialEngine = BingoEngine(
+        board: board,
+        calledNumbers: game.calledNumbers.toSet(),
+        claimedLineIds: initialClaimed.map((l) => l.id).toSet(),
+      );
+
       state = state.copyWith(
         room: room,
         game: game,
+        players: initialPlayers,
+        userBoard: board,
+        claimedLines: initialClaimed,
+        unclaimedCompletedLines: initialEngine.unclaimedCompletedLines,
         currentUserId: currentUserId,
         isLoading: false,
       );
@@ -208,6 +263,27 @@ class MultiplayerGameNotifier extends StateNotifier<MultiplayerGameState> {
         const Duration(seconds: 1),
         (_) => _updateTurnCountdown(),
       );
+
+      _roomSub = repository.watchRoom(roomId).listen((updatedRoom) {
+        if (!mounted) return;
+        state = state.copyWith(room: updatedRoom);
+        if (updatedRoom.status == RoomStatus.completed) {
+          _turnCountdownTimer?.cancel();
+          repository.getGameForRoom(roomId).then((activeGame) {
+            if (mounted) {
+              state = state.copyWith(
+                game: activeGame,
+                room: updatedRoom,
+              );
+              repository.getGamePlayers(activeGame.id).then((players) {
+                if (mounted) {
+                  state = state.copyWith(players: players);
+                }
+              }).catchError((_) {});
+            }
+          }).catchError((_) {});
+        }
+      });
 
       _gameSub = repository.watchGame(game.id).listen((updatedGame) {
         if (!mounted) return;
@@ -231,6 +307,28 @@ class MultiplayerGameNotifier extends StateNotifier<MultiplayerGameState> {
   }
 
   void _onGameUpdated(MultiplayerGame updatedGame) {
+    if (updatedGame.status == MultiplayerGameStatus.completed ||
+        updatedGame.winnerUserId != null) {
+      _turnCountdownTimer?.cancel();
+      repository.getGamePlayers(updatedGame.id).then((freshPlayers) {
+        if (mounted) {
+          state = state.copyWith(
+            game: updatedGame,
+            players: freshPlayers,
+            room: state.room?.copyWith(status: RoomStatus.completed),
+          );
+        }
+      }).catchError((_) {
+        if (mounted) {
+          state = state.copyWith(
+            game: updatedGame,
+            room: state.room?.copyWith(status: RoomStatus.completed),
+          );
+        }
+      });
+      return;
+    }
+
     final engine = BingoEngine(
       board: state.userBoard,
       calledNumbers: updatedGame.calledNumbers.toSet(),
@@ -246,6 +344,11 @@ class MultiplayerGameNotifier extends StateNotifier<MultiplayerGameState> {
   }
 
   void _onPlayersUpdated(List<MultiplayerPlayerState> updatedPlayers) {
+    final anyWon = updatedPlayers.any((p) => p.isWinner || p.linesClaimed >= 5);
+    if (anyWon) {
+      _turnCountdownTimer?.cancel();
+    }
+
     final currentUserId = state.currentUserId;
     final userState = updatedPlayers
         .where((p) => p.userId == currentUserId)
@@ -271,26 +374,37 @@ class MultiplayerGameNotifier extends StateNotifier<MultiplayerGameState> {
       updatedBoard = BingoBoard(userState.boardNumbers);
     }
 
+    final updatedClaimed = Set<WinningLine>.from(state.claimedLines);
+    if (userState != null) {
+      for (final raw in userState.claimedLineTypes) {
+        final matched = WinningLine.findLine(raw);
+        if (matched != null) updatedClaimed.add(matched);
+      }
+    }
+
     // Recompute private unclaimed completed lines for this player's own board only
     final calledSet = state.game?.calledNumbers.toSet() ?? {};
     final engine = BingoEngine(
       board: updatedBoard,
       calledNumbers: calledSet,
-      claimedLineIds: state.claimedLines.map((l) => l.id).toSet(),
+      claimedLineIds: updatedClaimed.map((l) => l.id).toSet(),
     );
     final unclaimed = engine.unclaimedCompletedLines;
 
     state = state.copyWith(
       userBoard: updatedBoard,
       players: updatedPlayers,
+      claimedLines: updatedClaimed,
       unclaimedCompletedLines: unclaimed,
       toastNotification: toast,
     );
   }
 
+  bool _isHandlingTimeout = false;
+
   void _updateTurnCountdown() {
     final game = state.game;
-    if (game == null || game.turnDeadline == null) return;
+    if (game == null || game.turnDeadline == null || state.isMatchOver) return;
 
     final now = DateTime.now();
     final remainingMs = game.turnDeadline!.difference(now).inMilliseconds;
@@ -299,10 +413,44 @@ class MultiplayerGameNotifier extends StateNotifier<MultiplayerGameState> {
     if (mounted) {
       state = state.copyWith(remainingTurnSeconds: remainingSec);
     }
+
+    // Server-authoritative turn timeout trigger:
+    // If turn timer expired and game is active, trigger atomic server timeout processing
+    if (remainingSec <= 0 &&
+        game.status == MultiplayerGameStatus.inProgress &&
+        !_isHandlingTimeout &&
+        !state.isCalling) {
+      _triggerTurnTimeout(game.id, game.currentTurnUserId);
+    }
+  }
+
+  Future<void> _triggerTurnTimeout(
+    String gameId,
+    String? currentTurnUserId,
+  ) async {
+    _isHandlingTimeout = true;
+    try {
+      final res = await repository.handleTurnTimeout(
+        gameId: gameId,
+        currentTurnUserId: currentTurnUserId,
+      );
+      if (res['success'] == true && res['auto_number'] != null) {
+        final autoNum = res['auto_number'] as int;
+        if (mounted) {
+          state = state.copyWith(
+            toastNotification:
+                'Time expired – Number $autoNum automatically selected.',
+          );
+        }
+      }
+    } catch (_) {
+    } finally {
+      _isHandlingTimeout = false;
+    }
   }
 
   Future<void> callNumber(int number) async {
-    if (state.isMatchOver) return;
+    if (state.isMatchOver || state.isCurrentPlayerForfeited) return;
     if (!state.isMyTurn || state.isCalling || state.game == null) return;
     if (state.game!.isNumberCalled(number)) return;
 
@@ -312,7 +460,18 @@ class MultiplayerGameNotifier extends StateNotifier<MultiplayerGameState> {
       await repository.callNumber(gameId: state.game!.id, number: number);
     } catch (e) {
       if (mounted) {
-        state = state.copyWith(errorMessage: ErrorMapper.map(e).message);
+        final errStr = e.toString();
+        if (errStr.contains('MATCH_ALREADY_COMPLETED') ||
+            errStr.contains('already completed')) {
+          _turnCountdownTimer?.cancel();
+          state = state.copyWith(
+            game: state.game?.copyWith(status: MultiplayerGameStatus.completed),
+            room: state.room?.copyWith(status: RoomStatus.completed),
+            errorMessage: 'Match has ended.',
+          );
+        } else {
+          state = state.copyWith(errorMessage: ErrorMapper.map(e).message);
+        }
       }
     } finally {
       if (mounted) {
@@ -322,7 +481,7 @@ class MultiplayerGameNotifier extends StateNotifier<MultiplayerGameState> {
   }
 
   Future<void> claimLine(WinningLine line) async {
-    if (state.isMatchOver) return;
+    if (state.isMatchOver || state.isCurrentPlayerForfeited) return;
     if (state.isClaiming || state.game == null) return;
     if (state.claimedLines.contains(line)) return;
 
@@ -334,7 +493,7 @@ class MultiplayerGameNotifier extends StateNotifier<MultiplayerGameState> {
           .toList();
       final hasWon = await repository.claimLine(
         gameId: state.game!.id,
-        lineType: line.name,
+        lineType: line.id,
         numbers: lineNumbers,
       );
 
@@ -344,23 +503,79 @@ class MultiplayerGameNotifier extends StateNotifier<MultiplayerGameState> {
         state.unclaimedCompletedLines,
       )..remove(line);
 
+      final updatedPlayers = state.players.map((p) {
+        if (p.userId == state.currentUserId) {
+          final types = List<String>.from(p.claimedLineTypes);
+          if (!types.contains(line.id)) {
+            types.add(line.id);
+          }
+          return p.copyWith(
+            linesClaimed: updatedClaimed.length,
+            claimedLineTypes: types,
+            isWinner: hasWon,
+          );
+        }
+        return p;
+      }).toList();
+
       if (mounted) {
+        if (hasWon) {
+          _turnCountdownTimer?.cancel();
+        }
         state = state.copyWith(
           claimedLines: updatedClaimed,
           unclaimedCompletedLines: updatedUnclaimed,
+          players: updatedPlayers,
           toastNotification: hasWon
               ? 'BINGO! YOU WON THE MATCH!'
-              : 'Line Claimed! Letter ${state.nextAwardLetter}',
+              : 'Line Claimed! Letter ${state.claimedLetterForCount(updatedClaimed.length)}',
+          game: hasWon
+              ? state.game?.copyWith(
+                  status: MultiplayerGameStatus.completed,
+                  winnerUserId: state.currentUserId,
+                )
+              : state.game,
+          room: hasWon
+              ? state.room?.copyWith(status: RoomStatus.completed)
+              : state.room,
         );
       }
     } catch (e) {
       if (mounted) {
-        state = state.copyWith(errorMessage: ErrorMapper.map(e).message);
+        final errStr = e.toString();
+        if (errStr.contains('MATCH_ALREADY_COMPLETED') ||
+            errStr.contains('already completed')) {
+          _turnCountdownTimer?.cancel();
+          state = state.copyWith(
+            game: state.game?.copyWith(status: MultiplayerGameStatus.completed),
+            room: state.room?.copyWith(status: RoomStatus.completed),
+            errorMessage: 'Match has ended.',
+          );
+        } else {
+          state = state.copyWith(errorMessage: ErrorMapper.map(e).message);
+        }
       }
     } finally {
       if (mounted) {
         state = state.copyWith(isClaiming: false);
       }
+    }
+  }
+
+  Future<Map<String, dynamic>> forfeitAndExit() async {
+    final game = state.game;
+    if (game == null) {
+      return {'success': false, 'error': 'No active game'};
+    }
+    _turnCountdownTimer?.cancel();
+    try {
+      final res = await repository.forfeitMatch(
+        gameId: game.id,
+        roomId: roomId,
+      );
+      return res;
+    } catch (e) {
+      return {'success': false, 'error': e.toString()};
     }
   }
 }

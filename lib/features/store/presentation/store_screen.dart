@@ -275,7 +275,7 @@ class _StoreScreenState extends ConsumerState<StoreScreen> {
               // Mini 5x5 Board Graphic (Strict 25 cells 01-25)
               GestureDetector(
                 onTap: () => ProductPreviewBottomSheet.show(context, featured),
-                child: _buildMini5x5BoardGraphic(featured.themeKey),
+                child: _buildMini5x5BoardGraphic(featured.themeKey, size: 96),
               ),
             ],
           ),
@@ -306,7 +306,7 @@ class _StoreScreenState extends ConsumerState<StoreScreen> {
     );
   }
 
-  Widget _buildMini5x5BoardGraphic(String themeKey) {
+  Widget _buildMini5x5BoardGraphic(String themeKey, {double size = 96}) {
     Color bg = const Color(0xFFEBE8F7);
     Color border = const Color(0xFFD9D3F3);
     Color header = const Color(0xFF2E274D);
@@ -331,84 +331,110 @@ class _StoreScreenState extends ConsumerState<StoreScreen> {
 
     const daubedIndices = {1, 7, 13, 19, 25};
 
-    return Container(
-      width: 110,
-      height: 110,
-      padding: const EdgeInsets.all(6),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: border),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: ['B', 'I', 'N', 'G', 'O'].map((l) {
-              return Text(
-                l,
-                style: TextStyle(
-                  fontSize: 7,
-                  fontWeight: FontWeight.w900,
-                  color: header,
-                ),
-              );
-            }).toList(),
-          ),
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: 25,
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 5,
-              crossAxisSpacing: 2,
-              mainAxisSpacing: 2,
-            ),
-            itemBuilder: (context, i) {
-              final num = i + 1;
-              final isMarked = daubedIndices.contains(num);
-              final numStr = num < 10 ? '0$num' : '$num';
+    return SizedBox(
+      width: size,
+      height: size,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: border),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(4),
+          child: MediaQuery.withNoTextScaling(
+            child: FittedBox(
+              fit: BoxFit.contain,
+              alignment: Alignment.center,
+              child: SizedBox(
+                width: 96,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: ['B', 'I', 'N', 'G', 'O'].map((l) {
+                        return Text(
+                          l,
+                          style: TextStyle(
+                            fontSize: 6.5,
+                            fontWeight: FontWeight.w900,
+                            color: header,
+                            height: 1.1,
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 3),
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: List.generate(5, (r) {
+                        return Padding(
+                          padding: EdgeInsets.only(bottom: r < 4 ? 1.5 : 0),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: List.generate(5, (c) {
+                              final num = r * 5 + c + 1;
+                              final isMarked = daubedIndices.contains(num);
+                              final numStr = num < 10 ? '0$num' : '$num';
 
-              return Container(
-                decoration: BoxDecoration(
-                  color: isMarked ? daubed : Colors.white.withAlpha(200),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  numStr,
-                  style: TextStyle(
-                    fontSize: 5.5,
-                    fontWeight: isMarked ? FontWeight.w900 : FontWeight.w600,
-                    color: isMarked ? Colors.white : header,
-                  ),
-                ),
-              );
-            },
-          ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                '5 IN A ROW',
-                style: TextStyle(
-                  fontSize: 5.5,
-                  fontWeight: FontWeight.w800,
-                  color: daubed,
+                              return Container(
+                                width: 17.5,
+                                height: 14.0,
+                                decoration: BoxDecoration(
+                                  color: isMarked
+                                      ? daubed
+                                      : Colors.white.withAlpha(200),
+                                  borderRadius: BorderRadius.circular(2),
+                                ),
+                                alignment: Alignment.center,
+                                child: Text(
+                                  numStr,
+                                  style: TextStyle(
+                                    fontSize: 6,
+                                    fontWeight: isMarked
+                                        ? FontWeight.w900
+                                        : FontWeight.w600,
+                                    color: isMarked ? Colors.white : header,
+                                    height: 1.0,
+                                  ),
+                                ),
+                              );
+                            }),
+                          ),
+                        );
+                      }),
+                    ),
+                    const SizedBox(height: 3),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          '5 IN A ROW',
+                          style: TextStyle(
+                            fontSize: 5.5,
+                            fontWeight: FontWeight.w800,
+                            color: daubed,
+                            height: 1.0,
+                          ),
+                        ),
+                        Text(
+                          'PREVIEW',
+                          style: TextStyle(
+                            fontSize: 5.5,
+                            fontWeight: FontWeight.w800,
+                            color: daubed,
+                            height: 1.0,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
-              Text(
-                'PREVIEW',
-                style: TextStyle(
-                  fontSize: 5.5,
-                  fontWeight: FontWeight.w800,
-                  color: daubed,
-                ),
-              ),
-            ],
+            ),
           ),
-        ],
+        ),
       ),
     );
   }
@@ -721,7 +747,7 @@ class _StoreScreenState extends ConsumerState<StoreScreen> {
         crossAxisCount: 2,
         crossAxisSpacing: 10,
         mainAxisSpacing: 10,
-        childAspectRatio: 0.72,
+        childAspectRatio: 0.69,
       ),
       itemBuilder: (context, index) {
         final item = items[index];
@@ -742,11 +768,18 @@ class _StoreScreenState extends ConsumerState<StoreScreen> {
             // Preview Thumbnail Stage
             Expanded(
               child: Container(
+                width: double.infinity,
                 decoration: BoxDecoration(
                   color: AppColors.surfaceContainerLow,
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Center(child: _buildItemThumbnail(item)),
+                padding: const EdgeInsets.all(4),
+                child: Center(
+                  child: FittedBox(
+                    fit: BoxFit.contain,
+                    child: _buildItemThumbnail(item),
+                  ),
+                ),
               ),
             ),
 
@@ -783,7 +816,7 @@ class _StoreScreenState extends ConsumerState<StoreScreen> {
 
   Widget _buildItemThumbnail(StoreItem item) {
     if (item.category == StoreCategory.board) {
-      return _buildMini5x5BoardGraphic(item.themeKey);
+      return _buildMini5x5BoardGraphic(item.themeKey, size: 92);
     }
     if (item.category == StoreCategory.numbers) {
       return Text(
@@ -861,7 +894,7 @@ class _StoreScreenState extends ConsumerState<StoreScreen> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(
-            'FREE',
+            item.isFree ? 'FREE' : 'OWNED',
             style: AppTypography.labelSm.copyWith(color: AppColors.textMuted),
           ),
           Container(

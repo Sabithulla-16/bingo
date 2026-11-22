@@ -22,7 +22,7 @@ void main() {
     );
 
     final guest = PlayerProfile(
-      id: 'guest_p2',
+      id: 'challenger_p2',
       displayName: 'Challenger Bob',
       email: 'bob@bingo.dev',
       avatarColorHex: '#20243A',

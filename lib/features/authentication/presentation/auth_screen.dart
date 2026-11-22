@@ -21,14 +21,21 @@ enum AuthMode { register, signIn, forgotPassword }
 
 /// Authentication & Registration Screen (Stitch Screen ID: `152948b85345400fb54e55f8ba807a09`)
 class AuthScreen extends ConsumerStatefulWidget {
-  const AuthScreen({super.key});
+  final AuthMode initialMode;
+  final String? redirectUrl;
+
+  const AuthScreen({
+    super.key,
+    this.initialMode = AuthMode.register,
+    this.redirectUrl,
+  });
 
   @override
   ConsumerState<AuthScreen> createState() => _AuthScreenState();
 }
 
 class _AuthScreenState extends ConsumerState<AuthScreen> {
-  AuthMode _authMode = AuthMode.register;
+  late AuthMode _authMode;
   bool _isLoading = false;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
@@ -47,6 +54,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   @override
   void initState() {
     super.initState();
+    _authMode = widget.initialMode;
     _passwordController.addListener(_onFieldChanged);
     _confirmPasswordController.addListener(_onFieldChanged);
     _emailController.addListener(_onFieldChanged);
@@ -219,6 +227,14 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
 
         final profile = ref.read(currentProfileProvider);
         if (mounted && profile != null) {
+          final target = widget.redirectUrl;
+          if (target != null &&
+              target.isNotEmpty &&
+              target != AppRoutes.auth &&
+              target != AppRoutes.splash) {
+            context.go(target);
+            return;
+          }
           setState(() {
             _registeredProfileForModal = profile;
           });
@@ -233,7 +249,15 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       }
 
       if (mounted) {
-        context.go(AppRoutes.home);
+        final target = widget.redirectUrl;
+        if (target != null &&
+            target.isNotEmpty &&
+            target != AppRoutes.auth &&
+            target != AppRoutes.splash) {
+          context.go(target);
+        } else {
+          context.go(AppRoutes.home);
+        }
       }
     } catch (e) {
       setState(() {
@@ -286,6 +310,20 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     return Stack(
       children: [
         ResponsiveScaffold(
+          appBar: Navigator.of(context).canPop()
+              ? AppBar(
+                  backgroundColor: Colors.transparent,
+                  elevation: 0,
+                  leading: IconButton(
+                    icon: const Icon(
+                      Icons.arrow_back_rounded,
+                      color: AppColors.primaryNavy,
+                    ),
+                    tooltip: 'Back',
+                    onPressed: () => context.pop(),
+                  ),
+                )
+              : null,
           body: Padding(
             padding: const EdgeInsets.symmetric(vertical: 20.0),
             child: Column(
@@ -1123,13 +1161,21 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
               ),
               const SizedBox(height: 20),
               PrimaryButton(
-                label: 'Enter Game Lobby',
+                label: widget.redirectUrl != null ? 'Continue to Game' : 'Enter Game Lobby',
                 icon: Icons.sports_esports_rounded,
                 onPressed: () {
                   setState(() {
                     _registeredProfileForModal = null;
                   });
-                  context.go(AppRoutes.home);
+                  final target = widget.redirectUrl;
+                  if (target != null &&
+                      target.isNotEmpty &&
+                      target != AppRoutes.auth &&
+                      target != AppRoutes.splash) {
+                    context.go(target);
+                  } else {
+                    context.go(AppRoutes.home);
+                  }
                 },
               ),
             ],

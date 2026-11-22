@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'supabase_service.dart';
@@ -43,27 +44,43 @@ final authStateProvider =
 /// Convenience provider returning the currently authenticated PlayerProfile or null.
 final currentProfileProvider = Provider<PlayerProfile?>((ref) {
   final authState = ref.watch(authStateProvider);
-  if (authState is Authenticated) {
-    return authState.profile;
-  }
-  return null;
+  return authState.profile;
 });
 
 /// StateNotifier that coordinates authentication state across the application.
 class AuthStateNotifier extends StateNotifier<AppAuthState> {
   final AuthRepository _authRepository;
   final ProfileRepository _profileRepository;
+  StreamSubscription<PlayerProfile>? _profileSub;
 
   AuthStateNotifier(this._authRepository, this._profileRepository)
     : super(const AuthInitial()) {
     _init();
   }
 
+  void _watchProfile(String userId) {
+    _profileSub?.cancel();
+    _profileSub = _profileRepository.watchProfile(userId).listen((updated) {
+      refreshProfile(updated);
+    });
+  }
+
+  @override
+  void dispose() {
+    _profileSub?.cancel();
+    super.dispose();
+  }
+
   Future<void> _init() async {
     try {
       final profile = await _authRepository.restoreSession();
       if (profile != null) {
-        state = Authenticated(profile);
+        if (profile.isGuest) {
+          state = AuthGuest(profile);
+        } else {
+          state = Authenticated(profile);
+        }
+        _watchProfile(profile.id);
       } else {
         state = const Unauthenticated();
       }
@@ -73,6 +90,13 @@ class AuthStateNotifier extends StateNotifier<AppAuthState> {
 
     _authRepository.authStateChanges.listen((authState) {
       state = authState;
+      if (authState is Authenticated) {
+        _watchProfile(authState.profile.id);
+      } else if (authState is AuthGuest) {
+        _watchProfile(authState.profile.id);
+      } else {
+        _profileSub?.cancel();
+      }
     });
   }
 
@@ -88,6 +112,7 @@ class AuthStateNotifier extends StateNotifier<AppAuthState> {
         rememberMe: rememberMe,
       );
       state = Authenticated(profile);
+      _watchProfile(profile.id);
     } catch (e) {
       state = AuthFailure(ErrorMapper.map(e).message);
       rethrow;
@@ -106,6 +131,7 @@ class AuthStateNotifier extends StateNotifier<AppAuthState> {
         displayName: displayName,
       );
       state = Authenticated(profile);
+      _watchProfile(profile.id);
     } catch (e) {
       state = AuthFailure(ErrorMapper.map(e).message);
       rethrow;
@@ -117,7 +143,8 @@ class AuthStateNotifier extends StateNotifier<AppAuthState> {
       final profile = await _authRepository.signInAsGuest(
         displayName: displayName,
       );
-      state = Authenticated(profile);
+      state = AuthGuest(profile);
+      _watchProfile(profile.id);
     } catch (e) {
       state = AuthFailure(ErrorMapper.map(e).message);
       rethrow;
@@ -125,6 +152,7 @@ class AuthStateNotifier extends StateNotifier<AppAuthState> {
   }
 
   Future<void> signOut() async {
+    _profileSub?.cancel();
     await _authRepository.signOut();
     state = const Unauthenticated();
   }
@@ -146,15 +174,35 @@ class AuthStateNotifier extends StateNotifier<AppAuthState> {
       state = Authenticated(updated);
     }
   }
+
+  void refreshProfile(PlayerProfile profile) {
+    final current = state;
+    if (current is Authenticated) {
+      state = Authenticated(profile);
+    } else if (current is AuthGuest) {
+      state = AuthGuest(profile);
+    }
+  }
+
+  Future<void> reloadProfile() async {
+    final uid = _authRepository.currentUserId;
+    if (uid != null) {
+      final p = await _profileRepository.getProfile(uid);
+      if (p != null) {
+        refreshProfile(p);
+      }
+    }
+  }
 }
 
-/// Provider for player career statistics.
-final careerStatsProvider = FutureProvider.family<PlayerCareerStats, String>((
+/// Provider for player career statistics, synchronized in real time.
+final careerStatsProvider =
+    StreamProvider.autoDispose.family<PlayerCareerStats, String>((
   ref,
   userId,
-) async {
+) {
   final profileRepo = ref.watch(profileRepositoryProvider);
-  return await profileRepo.getCareerStats(userId);
+  return profileRepo.watchCareerStats(userId);
 });
 
 /// Provider for managing local player preferences (sound, haptics).

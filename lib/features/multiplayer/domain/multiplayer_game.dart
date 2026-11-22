@@ -155,6 +155,7 @@ class MultiplayerPlayerState {
   final bool isWinner;
   final int seatIndex;
   final bool isHost;
+  final bool isForfeited;
 
   const MultiplayerPlayerState({
     required this.userId,
@@ -167,6 +168,7 @@ class MultiplayerPlayerState {
     this.isWinner = false,
     this.seatIndex = 0,
     this.isHost = false,
+    this.isForfeited = false,
   });
 
   /// Letter progress: B-I-N-G-O (1 line = B, 2 = B-I, 3 = B-I-N, etc.)
@@ -191,6 +193,7 @@ class MultiplayerPlayerState {
     bool? isWinner,
     int? seatIndex,
     bool? isHost,
+    bool? isForfeited,
   }) {
     return MultiplayerPlayerState(
       userId: userId ?? this.userId,
@@ -203,6 +206,7 @@ class MultiplayerPlayerState {
       isWinner: isWinner ?? this.isWinner,
       seatIndex: seatIndex ?? this.seatIndex,
       isHost: isHost ?? this.isHost,
+      isForfeited: isForfeited ?? this.isForfeited,
     );
   }
 }

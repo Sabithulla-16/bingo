@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/supabase/supabase_provider.dart';
+import '../../features/store/data/store_repository.dart';
 
 /// Centralized service managing tactile haptic feedback and real audio playback,
 /// adhering to the user's active audio and haptics preferences.
@@ -29,6 +30,14 @@ class FeedbackService {
 
   bool get _soundsEnabled =>
       _ref.read(playerPreferencesProvider).soundEffectsEnabled;
+
+  String get _soundPackKey {
+    try {
+      return _ref.read(playerCustomizationProvider).soundPackKey;
+    } catch (_) {
+      return 'classic';
+    }
+  }
 
   @visibleForTesting
   DateTime? get lastVictoryPlayedAt => _lastVictoryPlayedAt;
@@ -58,25 +67,35 @@ class FeedbackService {
   }
 
   /// Triggered on primary gameplay actions such as calling an uncalled number.
-  /// Uses the upgraded sound pack asset `number_call.wav` for human and bot turns.
+  /// Uses the equipped sound pack asset for human and bot turns.
   Future<void> callNumber() async {
     if (_hapticsEnabled) {
       await HapticFeedback.mediumImpact();
     }
-    await _playSound('number_call.wav');
+    final pack = _soundPackKey;
+    if (pack == 'arcade' || pack == 'celebration') {
+      await _playSound('number_call.wav');
+    } else {
+      await _playSound('call.wav');
+    }
   }
 
   /// Triggered when a player claims an achieved B-I-N-G-O line or daubs a completed row.
-  /// Uses the upgraded sound pack asset `line_strike.wav` for human and bot line claims.
+  /// Uses the equipped sound pack asset for human and bot line claims.
   Future<void> claimLine() async {
     if (_hapticsEnabled) {
       await HapticFeedback.heavyImpact();
     }
-    await _playSound('line_strike.wav');
+    final pack = _soundPackKey;
+    if (pack == 'arcade' || pack == 'celebration') {
+      await _playSound('line_strike.wav');
+    } else {
+      await _playSound('line.wav');
+    }
   }
 
   /// Celebratory vibration and upgraded fanfare alert when 5 lines are struck and match is won.
-  /// Plays `bingo_victory.wav` via a dedicated player to prevent overlap or interruption.
+  /// Plays equipped victory sound via a dedicated player to prevent overlap or interruption.
   /// Protected against duplicate triggers from repeated network events.
   Future<void> victoryBingo() async {
     final now = DateTime.now();
@@ -90,7 +109,12 @@ class FeedbackService {
     if (_hapticsEnabled) {
       await HapticFeedback.vibrate();
     }
-    await _playSound('bingo_victory.wav', player: _victoryPlayer);
+    final pack = _soundPackKey;
+    if (pack == 'celebration' || pack == 'arcade') {
+      await _playSound('bingo_victory.wav', player: _victoryPlayer);
+    } else {
+      await _playSound('bingo.wav', player: _victoryPlayer);
+    }
   }
 
   /// Standalone victory announcement voice cue (`bingo_voice.wav`).

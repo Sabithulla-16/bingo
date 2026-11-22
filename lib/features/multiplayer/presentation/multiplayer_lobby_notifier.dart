@@ -12,6 +12,10 @@ class MultiplayerLobbyState {
   final List<RoomPlayer> players;
   final String? currentUserId;
   final bool isLoading;
+  final bool isTogglingReady;
+  final bool isStartingGame;
+  final bool wasRemovedByHost;
+  final bool wasClosedByHost;
   final String? errorMessage;
 
   const MultiplayerLobbyState({
@@ -19,6 +23,10 @@ class MultiplayerLobbyState {
     this.players = const [],
     this.currentUserId,
     this.isLoading = false,
+    this.isTogglingReady = false,
+    this.isStartingGame = false,
+    this.wasRemovedByHost = false,
+    this.wasClosedByHost = false,
     this.errorMessage,
   });
 
@@ -50,6 +58,10 @@ class MultiplayerLobbyState {
     List<RoomPlayer>? players,
     String? currentUserId,
     bool? isLoading,
+    bool? isTogglingReady,
+    bool? isStartingGame,
+    bool? wasRemovedByHost,
+    bool? wasClosedByHost,
     String? errorMessage,
   }) {
     return MultiplayerLobbyState(
@@ -57,6 +69,10 @@ class MultiplayerLobbyState {
       players: players ?? this.players,
       currentUserId: currentUserId ?? this.currentUserId,
       isLoading: isLoading ?? this.isLoading,
+      isTogglingReady: isTogglingReady ?? this.isTogglingReady,
+      isStartingGame: isStartingGame ?? this.isStartingGame,
+      wasRemovedByHost: wasRemovedByHost ?? this.wasRemovedByHost,
+      wasClosedByHost: wasClosedByHost ?? this.wasClosedByHost,
       errorMessage: errorMessage,
     );
   }
@@ -84,6 +100,7 @@ class MultiplayerLobbyNotifier extends StateNotifier<MultiplayerLobbyState> {
 
   StreamSubscription<Room>? _roomSub;
   StreamSubscription<List<RoomPlayer>>? _playersSub;
+  bool _hasBeenMember = false;
 
   MultiplayerLobbyNotifier({
     required this.roomId,
@@ -107,6 +124,10 @@ class MultiplayerLobbyNotifier extends StateNotifier<MultiplayerLobbyState> {
       final room = await repository.getRoom(roomId);
       final players = await repository.getRoomPlayers(roomId);
 
+      if (players.any((p) => p.userId == currentUserId)) {
+        _hasBeenMember = true;
+      }
+
       state = state.copyWith(
         room: room,
         players: players,
@@ -117,7 +138,13 @@ class MultiplayerLobbyNotifier extends StateNotifier<MultiplayerLobbyState> {
       // Listen to room stream
       _roomSub = repository.watchRoom(roomId).listen((updatedRoom) {
         if (mounted) {
-          state = state.copyWith(room: updatedRoom);
+          final isClosed = (updatedRoom.status == RoomStatus.closed ||
+                  updatedRoom.status == RoomStatus.expired) &&
+              !state.isHost;
+          state = state.copyWith(
+            room: updatedRoom,
+            wasClosedByHost: isClosed ? true : state.wasClosedByHost,
+          );
         }
       });
 
@@ -126,7 +153,17 @@ class MultiplayerLobbyNotifier extends StateNotifier<MultiplayerLobbyState> {
         updatedPlayers,
       ) {
         if (mounted) {
-          state = state.copyWith(players: updatedPlayers);
+          final uid = state.currentUserId ?? authRepo.currentUserId;
+          final isNowInRoom = updatedPlayers.any((p) => p.userId == uid);
+          if (isNowInRoom) {
+            _hasBeenMember = true;
+          }
+          final removed = _hasBeenMember && !isNowInRoom && !state.isHost;
+
+          state = state.copyWith(
+            players: updatedPlayers,
+            wasRemovedByHost: removed ? true : state.wasRemovedByHost,
+          );
         }
       });
     } catch (e) {
@@ -140,14 +177,25 @@ class MultiplayerLobbyNotifier extends StateNotifier<MultiplayerLobbyState> {
   }
 
   Future<void> toggleReady() async {
+    if (state.isTogglingReady) return;
     final current = state.currentUserPlayer;
     if (current == null) return;
 
+    final nextReady = !current.isReady;
+    state = state.copyWith(isTogglingReady: true, errorMessage: null);
+
     try {
-      final nextReady = !current.isReady;
       await repository.toggleReady(roomId: roomId, isReady: nextReady);
+      if (mounted) {
+        state = state.copyWith(isTogglingReady: false);
+      }
     } catch (e) {
-      state = state.copyWith(errorMessage: ErrorMapper.map(e).message);
+      if (mounted) {
+        state = state.copyWith(
+          isTogglingReady: false,
+          errorMessage: ErrorMapper.map(e).message,
+        );
+      }
     }
   }
 
@@ -162,12 +210,21 @@ class MultiplayerLobbyNotifier extends StateNotifier<MultiplayerLobbyState> {
   }
 
   Future<void> startGame() async {
-    if (!state.canStartGame) return;
+    if (state.isStartingGame || !state.canStartGame) return;
+    state = state.copyWith(isStartingGame: true, errorMessage: null);
 
     try {
       await repository.startGame(roomId);
+      if (mounted) {
+        state = state.copyWith(isStartingGame: false);
+      }
     } catch (e) {
-      state = state.copyWith(errorMessage: ErrorMapper.map(e).message);
+      if (mounted) {
+        state = state.copyWith(
+          isStartingGame: false,
+          errorMessage: ErrorMapper.map(e).message,
+        );
+      }
     }
   }
 

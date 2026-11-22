@@ -13,6 +13,9 @@ void main() {
         '/single-player/board-preparation',
       );
       expect(AppRoutes.multiplayerMenu, '/multiplayer');
+      expect(AppRoutes.quickMatch, '/quick-match');
+      expect(AppRoutes.quickMatchOpponentFound, '/quick-match/opponent-found/:matchId');
+      expect(AppRoutes.quickMatchResult, '/quick-match/result/:matchId');
       expect(AppRoutes.createRoom, '/multiplayer/create-room');
       expect(AppRoutes.joinRoom, '/multiplayer/join-room');
       expect(AppRoutes.profile, '/profile');
@@ -26,6 +29,14 @@ void main() {
       expect(
         AppRoutes.singlePlayerResultPath('game_99'),
         '/single-player/result/game_99',
+      );
+      expect(
+        AppRoutes.quickMatchOpponentFoundPath('match_99'),
+        '/quick-match/opponent-found/match_99',
+      );
+      expect(
+        AppRoutes.quickMatchResultPath('match_99'),
+        '/quick-match/result/match_99',
       );
       expect(
         AppRoutes.roomLobbyPath('BG1234'),

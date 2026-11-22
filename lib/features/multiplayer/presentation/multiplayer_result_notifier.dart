@@ -7,6 +7,7 @@ import '../../room_statistics/domain/room_statistics.dart';
 import '../data/multiplayer_repository.dart';
 import '../data/multiplayer_repository_provider.dart';
 import '../domain/multiplayer_game.dart';
+import '../domain/room.dart';
 
 class MultiplayerResultState {
   final String roomId;
@@ -14,10 +15,12 @@ class MultiplayerResultState {
   final int roundNumber;
   final String roomName;
   final String roomCode;
+  final RoomStatus roomStatus;
   final String? winnerId;
   final String winnerName;
   final int totalCalls;
   final bool isYouWinner;
+  final bool isForfeit;
   final bool isHost;
   final String currentUserId;
   final List<RoundPlayerOutcome> playerResults;
@@ -33,10 +36,12 @@ class MultiplayerResultState {
     this.roundNumber = 1,
     this.roomName = 'BINGO ROOM',
     this.roomCode = '',
+    this.roomStatus = RoomStatus.completed,
     this.winnerId,
     this.winnerName = 'Winner',
     this.totalCalls = 0,
     this.isYouWinner = false,
+    this.isForfeit = false,
     this.isHost = false,
     this.currentUserId = '',
     this.playerResults = const [],
@@ -53,10 +58,12 @@ class MultiplayerResultState {
     int? roundNumber,
     String? roomName,
     String? roomCode,
+    RoomStatus? roomStatus,
     String? winnerId,
     String? winnerName,
     int? totalCalls,
     bool? isYouWinner,
+    bool? isForfeit,
     bool? isHost,
     String? currentUserId,
     List<RoundPlayerOutcome>? playerResults,
@@ -72,10 +79,12 @@ class MultiplayerResultState {
       roundNumber: roundNumber ?? this.roundNumber,
       roomName: roomName ?? this.roomName,
       roomCode: roomCode ?? this.roomCode,
+      roomStatus: roomStatus ?? this.roomStatus,
       winnerId: winnerId ?? this.winnerId,
       winnerName: winnerName ?? this.winnerName,
       totalCalls: totalCalls ?? this.totalCalls,
       isYouWinner: isYouWinner ?? this.isYouWinner,
+      isForfeit: isForfeit ?? this.isForfeit,
       isHost: isHost ?? this.isHost,
       currentUserId: currentUserId ?? this.currentUserId,
       playerResults: playerResults ?? this.playerResults,
@@ -92,6 +101,7 @@ class MultiplayerResultNotifier extends StateNotifier<MultiplayerResultState> {
   final MultiplayerRepository _multiplayerRepository;
   final AuthRepository _authRepository;
   StreamSubscription<MultiplayerGame>? _gameSub;
+  StreamSubscription<Room>? _roomSub;
 
   MultiplayerResultNotifier({
     required String roomId,
@@ -108,9 +118,6 @@ class MultiplayerResultNotifier extends StateNotifier<MultiplayerResultState> {
       final currentUid = _authRepository.currentUserId ?? '';
       final game = await _multiplayerRepository.getGameForRoom(state.roomId);
       final room = await _multiplayerRepository.getRoom(state.roomId);
-      final roomPlayers = await _multiplayerRepository.getRoomPlayers(
-        state.roomId,
-      );
       final isHost = room?.hostId == currentUid;
 
       // Watch game for status changes (e.g. host starts next round)
@@ -126,43 +133,75 @@ class MultiplayerResultNotifier extends StateNotifier<MultiplayerResultState> {
         }
       });
 
-      // Build initial player results
+      // Watch room for transitions (e.g. host starts next round -> preparing, or returns to lobby -> waiting)
+      _roomSub?.cancel();
+      _roomSub = _multiplayerRepository.watchRoom(state.roomId).listen((
+        updatedRoom,
+      ) {
+        if (mounted) {
+          state = state.copyWith(
+            roomStatus: updatedRoom.status,
+            roomName: updatedRoom.name,
+            roomCode: updatedRoom.code,
+          );
+        }
+      });
+
+      // Fetch actual game player states for genuine score and letters
+      final gamePlayers = await _multiplayerRepository.getGamePlayers(game.id);
+
+      // Build genuine player results across all historical game participants
       final List<RoundPlayerOutcome> outcomes = [];
-      String winnerDisplayName = 'Unknown';
+      String winnerDisplayName = 'Winner';
       bool isYouWinner = false;
 
-      for (final rp in roomPlayers) {
-        final isThisWinner =
-            game.winnerId != null && game.winnerId == rp.userId;
+      for (final p in gamePlayers) {
+        final actualLines = p.linesClaimed;
+        final isThisWinner = p.isWinner ||
+            actualLines >= 5 ||
+            (game.winnerUserId != null && game.winnerUserId == p.userId);
+
         if (isThisWinner) {
-          winnerDisplayName = rp.displayName;
-          if (rp.userId == currentUid) isYouWinner = true;
+          winnerDisplayName = p.displayName;
+          if (p.userId == currentUid) isYouWinner = true;
         }
+
+        final letters = ['B', 'I', 'N', 'G', 'O'].take(actualLines).toList();
+
         outcomes.add(
           RoundPlayerOutcome(
-            userId: rp.userId,
-            displayName: rp.displayName,
-            avatarColorHex: rp.avatarColorHex,
+            userId: p.userId,
+            displayName: p.displayName,
+            avatarColorHex: p.avatarColorHex,
             isWinner: isThisWinner,
-            isHost: rp.isHost,
-            isYou: rp.userId == currentUid,
-            linesClaimedCount: isThisWinner ? 5 : 4,
-            claimedLetters: isThisWinner
-                ? ['B', 'I', 'N', 'G', 'O']
-                : ['B', 'I', 'N', 'G'],
+            isHost: p.isHost,
+            isYou: p.userId == currentUid,
+            isForfeited: p.isForfeited,
+            linesClaimedCount: actualLines,
+            claimedLetters: letters,
           ),
         );
       }
 
-      // Finish round if still in progress / just completed
-      await _multiplayerRepository.finishRound(
-        gameId: game.id,
-        roomId: state.roomId,
-        winnerId: game.winnerId,
-        winnerName: winnerDisplayName,
-        totalCalls: game.calledNumbers.length,
-        playerOutcomes: outcomes.map((o) => o.toJson()).toList(),
+      // Fetch existing history to check if match was already recorded by RPC
+      final existingHistory = await _multiplayerRepository.getRoomMatchHistory(
+        state.roomId,
       );
+      final alreadyRecorded =
+          existingHistory.any((m) => m['game_id'] == game.id);
+
+      if (!alreadyRecorded) {
+        await _multiplayerRepository.finishRound(
+          gameId: game.id,
+          roomId: state.roomId,
+          winnerId: game.winnerUserId ??
+              (outcomes.where((o) => o.isWinner).firstOrNull?.userId),
+          winnerName: winnerDisplayName,
+          totalCalls: game.calledNumbers.length,
+          playerOutcomes: outcomes.map((o) => o.toJson()).toList(),
+          roundNumber: game.roundNumber,
+        );
+      }
 
       final rawLeaderboard = await _multiplayerRepository.getRoomLeaderboard(
         state.roomId,
@@ -200,6 +239,14 @@ class MultiplayerResultNotifier extends StateNotifier<MultiplayerResultState> {
           .map((m) => RoomRoundRecord.fromJson(m, currentUserId: currentUid))
           .toList();
 
+      final currentMatchHistory = rawHistory
+              .where((m) => m['game_id'] == game.id)
+              .firstOrNull ??
+          rawHistory.firstOrNull;
+      final isForfeit = currentMatchHistory?['is_forfeit'] == true ||
+          currentMatchHistory?['finish_reason'] == 'forfeit' ||
+          gamePlayers.any((p) => p.isForfeited);
+
       if (mounted) {
         state = state.copyWith(
           gameId: game.id,
@@ -208,12 +255,14 @@ class MultiplayerResultNotifier extends StateNotifier<MultiplayerResultState> {
           roomCode:
               room?.code ??
               state.roomId.toUpperCase().padRight(6, '0').substring(0, 6),
-          winnerId: game.winnerId,
+          roomStatus: room?.status ?? RoomStatus.completed,
+          winnerId: game.winnerUserId,
           winnerName: winnerDisplayName,
           totalCalls: game.calledNumbers.isNotEmpty
               ? game.calledNumbers.length
               : 18,
           isYouWinner: isYouWinner,
+          isForfeit: isForfeit,
           isHost: isHost,
           currentUserId: currentUid,
           playerResults: outcomes,
@@ -251,9 +300,33 @@ class MultiplayerResultNotifier extends StateNotifier<MultiplayerResultState> {
     }
   }
 
+  Future<void> returnToLobby() async {
+    try {
+      await _multiplayerRepository.returnToLobby(
+        roomId: state.roomId,
+        hostId: state.currentUserId,
+      );
+    } catch (e) {
+      if (mounted) {
+        state = state.copyWith(errorMessage: ErrorMapper.map(e).message);
+      }
+    }
+  }
+
+  Future<void> leaveRoom() async {
+    try {
+      await _multiplayerRepository.leaveRoom(state.roomId);
+    } catch (e) {
+      if (mounted) {
+        state = state.copyWith(errorMessage: ErrorMapper.map(e).message);
+      }
+    }
+  }
+
   @override
   void dispose() {
     _gameSub?.cancel();
+    _roomSub?.cancel();
     super.dispose();
   }
 }

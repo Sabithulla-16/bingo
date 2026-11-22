@@ -175,6 +175,99 @@ class WinningLine {
     ),
   ];
 
+  /// Resolves a WinningLine by either its ID (e.g. 'row_0') or Name (e.g. 'Row 1', 'ROW_0'), case-insensitively.
+  static WinningLine? findLine(String identifier) {
+    final lower = identifier.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+
+    // 1. Direct ID match (e.g. 'row_0', 'col_2', 'diag_main')
+    for (final line in allLines) {
+      if (line.id.toLowerCase() == lower) return line;
+    }
+
+    // 2. Unambiguous exact lookup table for 0-indexed and standard aliases:
+    const aliasMap = {
+      // Horizontal Rows 0..4
+      'row 0': 'row_0',
+      'row0': 'row_0',
+      'row_0': 'row_0',
+
+      'row 1': 'row_1',
+      'row1': 'row_1',
+      'row_1': 'row_1',
+
+      'row 2': 'row_2',
+      'row2': 'row_2',
+      'row_2': 'row_2',
+
+      'row 3': 'row_3',
+      'row3': 'row_3',
+      'row_3': 'row_3',
+
+      'row 4': 'row_4',
+      'row4': 'row_4',
+      'row_4': 'row_4',
+
+      'row 5': 'row_4',
+      'row5': 'row_4',
+
+      // Vertical Columns 0..4
+      'column 0': 'col_0',
+      'col 0': 'col_0',
+      'col0': 'col_0',
+      'col_0': 'col_0',
+
+      'column 1': 'col_1',
+      'col 1': 'col_1',
+      'col1': 'col_1',
+      'col_1': 'col_1',
+
+      'column 2': 'col_2',
+      'col 2': 'col_2',
+      'col2': 'col_2',
+      'col_2': 'col_2',
+
+      'column 3': 'col_3',
+      'col 3': 'col_3',
+      'col3': 'col_3',
+      'col_3': 'col_3',
+
+      'column 4': 'col_4',
+      'col 4': 'col_4',
+      'col4': 'col_4',
+      'col_4': 'col_4',
+
+      'column 5': 'col_4',
+      'col 5': 'col_4',
+
+      // Diagonals
+      'main diagonal': 'diag_main',
+      'main': 'diag_main',
+      'diag_main': 'diag_main',
+      'diagmain': 'diag_main',
+      'diag1': 'diag_main',
+      'd1': 'diag_main',
+
+      'anti diagonal': 'diag_anti',
+      'anti': 'diag_anti',
+      'diag_anti': 'diag_anti',
+      'diaganti': 'diag_anti',
+      'diag2': 'diag_anti',
+      'd2': 'diag_anti',
+    };
+
+    final mappedId = aliasMap[lower];
+    if (mappedId != null) {
+      return allLines.firstWhere((l) => l.id == mappedId);
+    }
+
+    // 3. Fallback direct Name match
+    for (final line in allLines) {
+      if (line.name.toLowerCase() == lower) return line;
+    }
+
+    return null;
+  }
+
   /// Checks if this line passes through the given board coordinate.
   bool containsCoordinate(BoardCoordinate coord) {
     return coordinates.contains(coord);

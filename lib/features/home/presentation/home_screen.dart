@@ -15,6 +15,7 @@ import '../../../core/widgets/status_badge.dart';
 import '../../../data/supabase/supabase_provider.dart';
 import '../../authentication/domain/auth_state.dart';
 import '../../profile/domain/player_career_stats.dart';
+import '../../store/data/store_repository.dart';
 
 /// Home Screen (Stitch Screen ID: `587a408834c84cee91acba026d408bad`)
 class HomeScreen extends ConsumerWidget {
@@ -23,6 +24,7 @@ class HomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authStateProvider);
+    final customization = ref.watch(playerCustomizationProvider);
     final profile = authState is Authenticated ? authState.profile : null;
     final playerName = profile?.displayName ?? 'Player';
     final avatarColor = _parseColor(profile?.avatarColorHex ?? '#FC695C');
@@ -31,7 +33,7 @@ class HomeScreen extends ConsumerWidget {
     final statsAsync = profile != null
         ? ref.watch(careerStatsProvider(profile.id))
         : null;
-    final stats = statsAsync?.value ?? PlayerCareerStats.sampleData();
+    final stats = statsAsync?.value ?? const PlayerCareerStats();
 
     return ResponsiveScaffold(
       body: Padding(
@@ -52,6 +54,8 @@ class HomeScreen extends ConsumerWidget {
                         displayName: playerName,
                         size: 44,
                         backgroundColor: avatarColor,
+                        avatarId: customization.avatarId,
+                        hasGoldenFrame: customization.hasGoldenFrame,
                         showOnlineIndicator: true,
                       ),
                       const SizedBox(width: 12),
@@ -151,6 +155,72 @@ class HomeScreen extends ConsumerWidget {
                     icon: Icons.play_arrow_rounded,
                     onPressed: () =>
                         context.push(AppRoutes.singlePlayerDifficulty),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Quick Match 1v1 Card
+            AppCard(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const StatusBadge(
+                        label: '1 VS 1 ONLINE',
+                        backgroundColor: Color(0xFFFFDAD6),
+                        textColor: Color(0xFFAE3029),
+                        icon: Icons.flash_on_rounded,
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF1B873F).withAlpha(25),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 6,
+                              height: 6,
+                              decoration: const BoxDecoration(
+                                color: Color(0xFF1B873F),
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            const Text(
+                              'LIVE QUEUE',
+                              style: TextStyle(
+                                fontFamily: 'Outfit',
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800,
+                                color: Color(0xFF1B873F),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Text('Quick Match', style: AppTypography.headlineMd),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Instant matchmaking with online players. Fast-paced 1v1 classic 5×5 Bingo.',
+                    style: AppTypography.bodySm,
+                  ),
+                  const SizedBox(height: 18),
+                  PrimaryButton(
+                    label: 'Play Quick Match',
+                    icon: Icons.bolt_rounded,
+                    backgroundColor: AppColors.primaryCoral,
+                    onPressed: () => context.push(AppRoutes.quickMatch),
                   ),
                 ],
               ),

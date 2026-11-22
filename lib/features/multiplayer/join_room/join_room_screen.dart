@@ -11,7 +11,9 @@ import '../../../core/widgets/app_card.dart';
 import '../../../core/widgets/primary_button.dart';
 import '../../../core/widgets/responsive_scaffold.dart';
 import '../../../core/widgets/status_badge.dart';
+import '../../../data/supabase/supabase_provider.dart';
 import '../data/multiplayer_repository_provider.dart';
+import '../domain/room_lookup_result.dart';
 
 /// Text formatter ensuring all entered characters are upper-case.
 class UpperCaseTextFormatter extends TextInputFormatter {
@@ -41,27 +43,56 @@ class _JoinRoomScreenState extends ConsumerState<JoinRoomScreen> {
   final TextEditingController _codeController = TextEditingController();
   final FocusNode _focusNode = FocusNode();
   bool _isLoading = false;
+  bool _isSearching = false;
   String? _errorMessage;
-
-  // Mock / persisted recent room codes
-  final List<String> _recentRooms = const ['BG7742', 'WIN990', 'PRO882'];
+  RoomLookupResult? _lookupResult;
 
   @override
   void initState() {
     super.initState();
     if (widget.initialCode != null && widget.initialCode!.isNotEmpty) {
       _codeController.text = widget.initialCode!.trim().toUpperCase();
+      _performLookup(_codeController.text);
     }
     _codeController.addListener(_onCodeChanged);
   }
 
   void _onCodeChanged() {
     if (mounted) {
-      setState(() {
-        if (_errorMessage != null) {
+      final code = _codeController.text.trim().toUpperCase();
+      if (code.length == 6) {
+        _performLookup(code);
+      } else {
+        setState(() {
+          _lookupResult = null;
           _errorMessage = null;
-        }
-      });
+        });
+      }
+    }
+  }
+
+  Future<void> _performLookup(String code) async {
+    setState(() {
+      _isSearching = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final repo = ref.read(multiplayerRepositoryProvider);
+      final result = await repo.lookupRoomByCode(code);
+      if (mounted) {
+        setState(() {
+          _lookupResult = result;
+          if (!result.canJoin && !result.status.isWaiting) {
+            _errorMessage = result.userMessage;
+          }
+        });
+      }
+    } catch (_) {
+    } finally {
+      if (mounted) {
+        setState(() => _isSearching = false);
+      }
     }
   }
 
@@ -74,6 +105,15 @@ class _JoinRoomScreenState extends ConsumerState<JoinRoomScreen> {
   }
 
   Future<void> _handleJoin(String code) async {
+    final profile = ref.read(currentProfileProvider);
+    if (profile == null || profile.isGuest) {
+      setState(
+        () => _errorMessage =
+            'An authenticated account is required to join multiplayer rooms.',
+      );
+      return;
+    }
+
     final cleanCode = code.trim().toUpperCase();
     if (cleanCode.length != 6) {
       setState(() => _errorMessage = 'Room code must be exactly 6 characters.');
@@ -253,8 +293,34 @@ class _JoinRoomScreenState extends ConsumerState<JoinRoomScreen> {
 
             const SizedBox(height: 12),
 
-            // Error / Validation Banner
-            if (_errorMessage != null)
+            // Loading / Searching indicator
+            if (_isSearching)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Center(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: AppColors.primaryCoral,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Checking room status...',
+                        style: AppTypography.labelSm.copyWith(
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            else if (_errorMessage != null)
               Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 14,
@@ -295,14 +361,24 @@ class _JoinRoomScreenState extends ConsumerState<JoinRoomScreen> {
                 ),
               ),
 
-            const SizedBox(height: 24),
+            // Authoritative Room Lookup Status Card
+            if (_lookupResult != null && !_lookupResult!.status.isNotFound) ...[
+              const SizedBox(height: 16),
+              _buildStructuredRoomCard(_lookupResult!),
+            ],
+
+            const SizedBox(height: 20),
 
             // Primary Join Action Button
             PrimaryButton(
-              label: 'Join Room',
+              label: _lookupResult != null && !_lookupResult!.canJoin
+                  ? 'Cannot Join Room'
+                  : 'Join Room',
               icon: Icons.login_rounded,
               isLoading: _isLoading,
-              onPressed: currentCode.length == 6
+              onPressed:
+                  currentCode.length == 6 &&
+                      (_lookupResult == null || _lookupResult!.canJoin)
                   ? () => _handleJoin(currentCode)
                   : null,
             ),
@@ -334,75 +410,251 @@ class _JoinRoomScreenState extends ConsumerState<JoinRoomScreen> {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  ..._recentRooms.map((code) {
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 8.0),
-                      child: InkWell(
-                        onTap: () {
-                          _codeController.text = code;
-                          _handleJoin(code);
-                        },
-                        borderRadius: AppRadii.roundedMd,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppColors.surface,
-                            borderRadius: AppRadii.roundedMd,
-                            border: Border.all(
-                              color: AppColors.structuralBorder,
+                  ref.watch(recentRoomsProvider).when(
+                    data: (recentRooms) {
+                      if (recentRooms.isEmpty) {
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8.0),
+                          child: Text(
+                            'No recent rooms yet. Enter a room code above to join a match.',
+                            style: AppTypography.bodySm.copyWith(
+                              color: AppColors.textMuted,
                             ),
                           ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Row(
-                                children: [
-                                  const Icon(
-                                    Icons.meeting_room_outlined,
-                                    size: 16,
-                                    color: AppColors.primaryNavy,
+                        );
+                      }
+                      return Column(
+                        children: recentRooms.map((room) {
+                          final code = (room['code'] ?? '').toString();
+                          final roomName = room['name'] as String? ?? 'BINGO Room';
+                          final participants = room['participant_count'] != null
+                              ? '${room['participant_count']}/${room['max_players'] ?? 4}'
+                              : null;
+
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 8.0),
+                            child: InkWell(
+                              onTap: () {
+                                _codeController.text = code;
+                                _performLookup(code);
+                              },
+                              borderRadius: AppRadii.roundedMd,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 8,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppColors.surface,
+                                  borderRadius: AppRadii.roundedMd,
+                                  border: Border.all(
+                                    color: AppColors.structuralBorder,
                                   ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    code,
-                                    style: AppTypography.labelMd.copyWith(
-                                      fontWeight: FontWeight.w800,
-                                      letterSpacing: 1.0,
+                                ),
+                                child: Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        const Icon(
+                                          Icons.meeting_room_outlined,
+                                          size: 16,
+                                          color: AppColors.primaryNavy,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              code,
+                                              style: AppTypography.labelMd
+                                                  .copyWith(
+                                                    fontWeight: FontWeight.w800,
+                                                    letterSpacing: 1.0,
+                                                  ),
+                                            ),
+                                            if (roomName.isNotEmpty &&
+                                                roomName != code)
+                                              Text(
+                                                participants != null
+                                                    ? '$roomName • $participants'
+                                                    : roomName,
+                                                style: AppTypography.bodySm
+                                                    .copyWith(
+                                                      fontSize: 10,
+                                                      color:
+                                                          AppColors.textMuted,
+                                                    ),
+                                              ),
+                                          ],
+                                        ),
+                                      ],
                                     ),
-                                  ),
-                                ],
-                              ),
-                              Row(
-                                children: [
-                                  Text(
-                                    'TAP TO JOIN',
-                                    style: AppTypography.labelSm.copyWith(
-                                      color: AppColors.primaryCoral,
-                                      fontWeight: FontWeight.w700,
+                                    Row(
+                                      children: [
+                                        Text(
+                                          'Check Code',
+                                          style: AppTypography.labelSm
+                                              .copyWith(
+                                                color: AppColors.primaryCoral,
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        const Icon(
+                                          Icons.arrow_forward_ios_rounded,
+                                          size: 12,
+                                          color: AppColors.primaryCoral,
+                                        ),
+                                      ],
                                     ),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  const Icon(
-                                    Icons.arrow_forward_ios_rounded,
-                                    size: 12,
-                                    color: AppColors.primaryCoral,
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
-                            ],
-                          ),
+                            ),
+                          );
+                        }).toList(),
+                      );
+                    },
+                    loading: () => const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 8.0),
+                      child: Center(
+                        child: SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
                         ),
                       ),
-                    );
-                  }),
+                    ),
+                    error: (err, stack) => Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8.0),
+                      child: Text(
+                        'No recent rooms available.',
+                        style: AppTypography.bodySm.copyWith(
+                          color: AppColors.textMuted,
+                        ),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildStructuredRoomCard(RoomLookupResult result) {
+    Color badgeBg;
+    Color badgeText;
+    String badgeLabel;
+    IconData badgeIcon;
+
+    switch (result.status) {
+      case RoomLookupStatus.waiting:
+        badgeBg = const Color(0xFFE8F5E9);
+        badgeText = AppColors.readyGreen;
+        badgeLabel = 'ROOM FOUND • ACCEPTING PLAYERS';
+        badgeIcon = Icons.check_circle_outline_rounded;
+        break;
+      case RoomLookupStatus.full:
+        badgeBg = const Color(0xFFFFF3E0);
+        badgeText = AppColors.softYellowDark;
+        badgeLabel = 'ROOM FULL';
+        badgeIcon = Icons.groups_rounded;
+        break;
+      case RoomLookupStatus.boardPreparation:
+        badgeBg = const Color(0xFFEDE7F6);
+        badgeText = AppColors.primaryNavy;
+        badgeLabel = 'PREPARING BOARD';
+        badgeIcon = Icons.dashboard_customize_rounded;
+        break;
+      case RoomLookupStatus.playing:
+        badgeBg = const Color(0xFFFFEBEE);
+        badgeText = AppColors.primaryCoral;
+        badgeLabel = 'GAME IN PROGRESS';
+        badgeIcon = Icons.sports_esports_rounded;
+        break;
+      case RoomLookupStatus.roundCompleted:
+        badgeBg = const Color(0xFFEDE7F6);
+        badgeText = AppColors.primaryNavy;
+        badgeLabel = 'ROUND FINISHED';
+        badgeIcon = Icons.flag_rounded;
+        break;
+      case RoomLookupStatus.closed:
+        badgeBg = AppColors.surfaceContainerHigh;
+        badgeText = AppColors.textMuted;
+        badgeLabel = 'ROOM CLOSED';
+        badgeIcon = Icons.lock_outline_rounded;
+        break;
+      case RoomLookupStatus.expired:
+        badgeBg = AppColors.surfaceContainerHigh;
+        badgeText = AppColors.textMuted;
+        badgeLabel = 'EXPIRED';
+        badgeIcon = Icons.timer_off_outlined;
+        break;
+      case RoomLookupStatus.notFound:
+        badgeBg = const Color(0xFFFFEBEE);
+        badgeText = AppColors.errorRed;
+        badgeLabel = 'NOT FOUND';
+        badgeIcon = Icons.help_outline_rounded;
+        break;
+    }
+
+    return AppCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Flexible(
+                child: StatusBadge(
+                  label: badgeLabel,
+                  backgroundColor: badgeBg,
+                  textColor: badgeText,
+                  icon: badgeIcon,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                '${result.currentPlayers}/${result.maxPlayers} PLAYERS',
+                style: AppTypography.labelSm.copyWith(
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.primaryNavy,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            result.name ?? 'Bingo Room',
+            style: AppTypography.headlineSm.copyWith(
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            'Host: ${result.hostName ?? "Player"}',
+            style: AppTypography.bodySm.copyWith(
+              color: AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            result.userMessage,
+            style: AppTypography.bodySm.copyWith(
+              color: result.canJoin
+                  ? AppColors.readyGreen
+                  : AppColors.textSecondary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
       ),
     );
   }

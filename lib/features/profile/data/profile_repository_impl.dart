@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../core/errors/error_logger.dart';
 import '../domain/player_career_stats.dart';
 import '../domain/player_preferences.dart';
 import '../domain/player_profile.dart';
@@ -15,7 +17,97 @@ class ProfileRepositoryImpl implements ProfileRepository {
   static const String _prefStatsPrefix = 'bingo_stats_';
   static const String _prefPreferencesKey = 'bingo_player_preferences';
 
+  final Map<String, StreamController<PlayerProfile>> _profileControllers = {};
+  final Map<String, RealtimeChannel> _profileChannels = {};
+
+  final Map<String, StreamController<PlayerCareerStats>> _statsControllers = {};
+  final Map<String, RealtimeChannel> _statsChannels = {};
+
   ProfileRepositoryImpl(this._client);
+
+  @override
+  Stream<PlayerProfile> watchProfile(String userId) {
+    final controller = _profileControllers.putIfAbsent(
+      userId,
+      () => StreamController<PlayerProfile>.broadcast(),
+    );
+
+    getProfile(userId).then((p) {
+      if (p != null && !controller.isClosed) {
+        controller.add(p);
+      }
+    });
+
+    if (_client != null && !_profileChannels.containsKey(userId)) {
+      try {
+        final channel = _client.channel('public:profiles:$userId');
+        channel.onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'profiles',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'id',
+            value: userId,
+          ),
+          callback: (payload) async {
+            final p = await getProfile(userId);
+            if (p != null && !controller.isClosed) {
+              controller.add(p);
+            }
+          },
+        );
+        channel.subscribe();
+        _profileChannels[userId] = channel;
+      } catch (e, st) {
+        ErrorLogger.logUnhandled(e, st, source: 'watchProfile_realtime');
+      }
+    }
+
+    return controller.stream;
+  }
+
+  @override
+  Stream<PlayerCareerStats> watchCareerStats(String userId) {
+    final controller = _statsControllers.putIfAbsent(
+      userId,
+      () => StreamController<PlayerCareerStats>.broadcast(),
+    );
+
+    getCareerStats(userId).then((s) {
+      if (!controller.isClosed) {
+        controller.add(s);
+      }
+    });
+
+    if (_client != null && !_statsChannels.containsKey(userId)) {
+      try {
+        final channel = _client.channel('public:player_statistics:$userId');
+        channel.onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'player_statistics',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'user_id',
+            value: userId,
+          ),
+          callback: (payload) async {
+            final s = await getCareerStats(userId);
+            if (!controller.isClosed) {
+              controller.add(s);
+            }
+          },
+        );
+        channel.subscribe();
+        _statsChannels[userId] = channel;
+      } catch (e, st) {
+        ErrorLogger.logUnhandled(e, st, source: 'watchCareerStats_realtime');
+      }
+    }
+
+    return controller.stream;
+  }
 
   @override
   Future<PlayerProfile?> getProfile(String userId) async {
@@ -60,6 +152,11 @@ class ProfileRepositoryImpl implements ProfileRepository {
   Future<PlayerProfile> upsertProfile(PlayerProfile profile) async {
     // 1. Save locally
     await _cacheProfileLocally(profile);
+
+    final ctrl = _profileControllers[profile.id];
+    if (ctrl != null && !ctrl.isClosed) {
+      ctrl.add(profile);
+    }
 
     // 2. Sync to Supabase if connected
     if (_client != null) {
@@ -131,8 +228,71 @@ class ProfileRepositoryImpl implements ProfileRepository {
       }
     } catch (_) {}
 
-    // Return sample stats consistent with the Stitch designs
-    return PlayerCareerStats.sampleData();
+    // Return genuine empty stats for new users with no history
+    return const PlayerCareerStats();
+  }
+
+  @override
+  Future<void> recordMatchResult({
+    required String userId,
+    required MatchOutcome outcome,
+    required int linesClaimed,
+    required int callsCount,
+    required bool isMultiplayer,
+  }) async {
+    final current = await getCareerStats(userId);
+    final isWin = outcome == MatchOutcome.victory;
+    final isLoss = outcome == MatchOutcome.defeat;
+    final isDraw = outcome == MatchOutcome.draw;
+
+    final newTotal = current.totalMatches + 1;
+    final newWins = current.wins + (isWin ? 1 : 0);
+    final newLosses = current.losses + (isLoss ? 1 : 0);
+    final newDraws = current.draws + (isDraw ? 1 : 0);
+    final newStreak = isWin ? (current.currentStreak + 1) : 0;
+    final newBest = newStreak > current.bestStreak
+        ? newStreak
+        : current.bestStreak;
+    final newHighestLines = linesClaimed > current.highestLinesClaimed
+        ? linesClaimed
+        : current.highestLinesClaimed;
+    final newAvgCalls =
+        (current.averageCallsPerMatch * current.totalMatches + callsCount) /
+        newTotal;
+
+    final record = MatchRecord(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      roomName: isMultiplayer ? 'Multiplayer Room' : 'Solo vs AI',
+      roundNumber: newTotal,
+      linesClaimed: linesClaimed,
+      callsCount: callsCount,
+      outcome: outcome,
+      timestamp: DateTime.now(),
+    );
+
+    final updated = current.copyWith(
+      totalMatches: newTotal,
+      wins: newWins,
+      losses: newLosses,
+      draws: newDraws,
+      currentStreak: newStreak,
+      bestStreak: newBest,
+      highestLinesClaimed: newHighestLines,
+      averageCallsPerMatch: double.parse(newAvgCalls.toStringAsFixed(1)),
+      recentMatches: [record, ...current.recentMatches].take(10).toList(),
+    );
+
+    // Save locally
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      '$_prefStatsPrefix$userId',
+      jsonEncode(updated.toJson()),
+    );
+
+    final statCtrl = _statsControllers[userId];
+    if (statCtrl != null && !statCtrl.isClosed) {
+      statCtrl.add(updated);
+    }
   }
 
   @override

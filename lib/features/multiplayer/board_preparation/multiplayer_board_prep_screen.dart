@@ -6,12 +6,16 @@ import '../../../app/theme/app_colors.dart';
 import '../../../app/theme/app_radii.dart';
 import '../../../app/theme/app_typography.dart';
 import '../../../core/game_engine/board_coordinate.dart';
+import '../../../core/theme/board_theme_config.dart';
 import '../../../core/widgets/app_card.dart';
 import '../../../core/widgets/player_avatar.dart';
 import '../../../core/widgets/primary_button.dart';
 import '../../../core/widgets/responsive_scaffold.dart';
 import '../../../core/widgets/secondary_button.dart';
+import '../../store/data/store_repository.dart';
+import '../data/multiplayer_repository_provider.dart';
 import '../domain/multiplayer_game.dart';
+import '../domain/room.dart';
 import '../presentation/multiplayer_board_prep_notifier.dart';
 
 /// Multiplayer Board Preparation Screen (Stitch Screen 12: `e8593d7a83924868a0b75fad83f69012`)
@@ -40,19 +44,36 @@ class _MultiplayerBoardPrepScreenState
     final notifier = ref.read(
       multiplayerBoardPrepProvider(widget.roomId).notifier,
     );
+    final customization = ref.watch(playerCustomizationProvider);
 
-    // Auto-navigate to game when server transitions match to in_progress
+    // Auto-navigate to gameplay when server transitions room or match to inProgress
     ref.listen<MultiplayerBoardPrepState>(
       multiplayerBoardPrepProvider(widget.roomId),
       (prev, next) {
-        if (next.game?.status == MultiplayerGameStatus.inProgress) {
+        if (next.game?.status == MultiplayerGameStatus.inProgress ||
+            next.room?.status == RoomStatus.inProgress) {
           context.go(AppRoutes.multiplayerGamePath(widget.roomId));
+        } else if (next.game?.status == MultiplayerGameStatus.completed ||
+            next.room?.status == RoomStatus.completed) {
+          final isQuickMatch = next.room?.isQuickMatch == true;
+          if (isQuickMatch) {
+            ref
+                .read(multiplayerRepositoryProvider)
+                .getQuickMatchByRoomId(widget.roomId)
+                .then((qm) {
+              if (qm != null && context.mounted) {
+                context.go(AppRoutes.quickMatchResultPath(qm.id));
+              }
+            });
+          } else {
+            context.go(AppRoutes.multiplayerResultPath(widget.roomId));
+          }
         }
       },
     );
 
     final timerColor = _getTimerColor(state.remainingSeconds);
-    final roomName = state.room?.name ?? 'Bingo Room';
+    final roomName = state.room?.name ?? 'FRIDAY BINGO CLUB';
     final roomCode = state.room?.code ?? '......';
 
     return ResponsiveScaffold(
@@ -72,19 +93,19 @@ class _MultiplayerBoardPrepScreenState
                     children: [
                       // Top Header Bar
                       _buildTopHeader(context, roomCode),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 14),
 
                       // Room Context Title & Badges
                       _buildRoomContext(roomName, roomCode),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 14),
 
                       // Synchronized Server Countdown Timer Card
                       _buildSynchronizedTimerCard(state, timerColor),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 14),
 
-                      // Player Readiness Strip
-                      _buildPlayerReadinessSection(state),
-                      const SizedBox(height: 16),
+                      // Player Readiness Strip (4-column grid matching Stitch design)
+                      _buildPlayerReadinessSection(state, customization),
+                      const SizedBox(height: 14),
 
                       // Board Action Bar (Tap to swap info & Shuffle Board)
                       _buildBoardActionBar(state, notifier),
@@ -97,7 +118,7 @@ class _MultiplayerBoardPrepScreenState
                       ],
 
                       // 5x5 Central Bingo Matrix with Lock Overlay
-                      _buildInteractiveBoard(state, notifier),
+                      _buildInteractiveBoard(state, notifier, customization),
                       const SizedBox(height: 12),
 
                       // Numbers placed confirmation pill
@@ -131,7 +152,7 @@ class _MultiplayerBoardPrepScreenState
                           ),
                         ),
                       ),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 16),
 
                       // Action Button: Confirm Board
                       _buildConfirmButton(state, notifier),
@@ -147,7 +168,31 @@ class _MultiplayerBoardPrepScreenState
                           ),
                         ),
                       ),
-                      const SizedBox(height: 14),
+                      const SizedBox(height: 4),
+                      Center(
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(
+                              Icons.info_outline_rounded,
+                              size: 13,
+                              color: AppColors.textMuted,
+                            ),
+                            const SizedBox(width: 4),
+                            Flexible(
+                              child: Text(
+                                'Need more time? Timer will hold before match starts.',
+                                style: AppTypography.bodySm.copyWith(
+                                  fontSize: 11,
+                                  color: AppColors.textMuted,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
 
                       // Leave Room
                       Center(
@@ -167,7 +212,7 @@ class _MultiplayerBoardPrepScreenState
                           ),
                         ),
                       ),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 20),
                     ],
                   ),
                 ),
@@ -222,13 +267,23 @@ class _MultiplayerBoardPrepScreenState
                     shape: BoxShape.circle,
                   ),
                 ),
+                const SizedBox(width: 3),
+                Container(
+                  width: 6,
+                  height: 6,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFC2C5E2),
+                    shape: BoxShape.circle,
+                  ),
+                ),
               ],
             ),
             Text(
-              'BOARD PREPARATION',
+              'Board Preparation',
               style: AppTypography.labelSm.copyWith(
                 color: AppColors.textSecondary,
-                letterSpacing: 1.0,
+                letterSpacing: 0.5,
+                fontSize: 9.5,
               ),
             ),
           ],
@@ -248,7 +303,13 @@ class _MultiplayerBoardPrepScreenState
                 color: AppColors.primaryNavy,
               ),
               const SizedBox(width: 4),
-              Text('Private', style: AppTypography.labelSm),
+              Text(
+                'Private',
+                style: AppTypography.labelSm.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.primaryNavy,
+                ),
+              ),
             ],
           ),
         ),
@@ -264,16 +325,32 @@ class _MultiplayerBoardPrepScreenState
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Flexible(
-              child: Text(
-                roomName.toUpperCase(),
-                style: AppTypography.headlineSm.copyWith(
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.primaryNavy,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+              child: Row(
+                children: [
+                  Flexible(
+                    child: Text(
+                      roomName.toUpperCase(),
+                      style: AppTypography.headlineSm.copyWith(
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.primaryNavy,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Container(
+                    width: 6,
+                    height: 6,
+                    decoration: const BoxDecoration(
+                      color: AppColors.primaryCoral,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ],
               ),
             ),
+            const SizedBox(width: 8),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: const BoxDecoration(
@@ -284,7 +361,7 @@ class _MultiplayerBoardPrepScreenState
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   const Icon(
-                    Icons.tag_rounded,
+                    Icons.lock_rounded,
                     size: 12,
                     color: AppColors.textSecondary,
                   ),
@@ -300,6 +377,36 @@ class _MultiplayerBoardPrepScreenState
               ),
             ),
           ],
+        ),
+        const SizedBox(height: 4),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFDAD6),
+            borderRadius: AppRadii.roundedFull,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 5,
+                height: 5,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFAE3029),
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 5),
+              Text(
+                'BOARD PREPARATION',
+                style: AppTypography.labelSm.copyWith(
+                  fontSize: 9,
+                  fontWeight: FontWeight.w800,
+                  color: const Color(0xFF690005),
+                ),
+              ),
+            ],
+          ),
         ),
         const SizedBox(height: 6),
         Text(
@@ -459,9 +566,16 @@ class _MultiplayerBoardPrepScreenState
     );
   }
 
-  Widget _buildPlayerReadinessSection(MultiplayerBoardPrepState state) {
+  Widget _buildPlayerReadinessSection(
+    MultiplayerBoardPrepState state,
+    dynamic customization,
+  ) {
+    final activePlayers = state.players;
+    final totalPlayers = activePlayers.length;
+    final readyCount = state.readyCount;
+
     return AppCard(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -487,7 +601,7 @@ class _MultiplayerBoardPrepScreenState
                   borderRadius: AppRadii.roundedFull,
                 ),
                 child: Text(
-                  '${state.players.length} PLAYERS (${state.readyCount} READY)',
+                  '$totalPlayers PLAYERS ($readyCount READY)',
                   style: AppTypography.labelSm.copyWith(
                     fontWeight: FontWeight.w700,
                     color: AppColors.primaryNavy,
@@ -496,47 +610,91 @@ class _MultiplayerBoardPrepScreenState
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
 
-          // Cards Row
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: state.players.map((player) {
-                final isYou = player.userId == state.currentUserState?.userId;
-                return Container(
-                  width: 92,
-                  margin: const EdgeInsets.only(right: 8),
-                  padding: const EdgeInsets.all(8),
+          // Dynamic player columns adapting cleanly to 2, 3, or 4 players
+          Row(
+            children: activePlayers.map((player) {
+              final isYou = player.userId == state.currentUserId;
+              return Expanded(
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 3),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 4,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.surfaceContainerLow,
                     borderRadius: AppRadii.roundedMd,
                     border: isYou
-                        ? Border.all(color: AppColors.primaryCoral, width: 1.5)
+                        ? Border.all(
+                            color: AppColors.primaryCoral,
+                            width: 1.5,
+                          )
                         : null,
                   ),
                   child: Column(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      PlayerAvatar(
-                        displayName: player.displayName,
-                        size: 36,
-                        backgroundColor: Color(
-                          int.parse(
-                            player.avatarColorHex.replaceFirst('#', '0xFF'),
+                      Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          PlayerAvatar(
+                            displayName: player.displayName,
+                            size: 32,
+                            avatarId: isYou ? customization.avatarId : null,
+                            hasGoldenFrame: isYou
+                                ? customization.hasGoldenFrame
+                                : false,
+                            backgroundColor: Color(
+                              int.parse(
+                                player.avatarColorHex.replaceFirst(
+                                  '#',
+                                  '0xFF',
+                                ),
+                              ),
+                            ),
                           ),
-                        ),
+                          if (isYou)
+                            Positioned(
+                              bottom: -2,
+                              right: -2,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 3,
+                                  vertical: 1,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primaryNavy,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: const Text(
+                                  'YOU',
+                                  style: TextStyle(
+                                    fontSize: 7,
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 4),
                       Text(
-                        isYou ? 'You' : player.displayName,
+                        isYou
+                            ? (player.isHost ? 'You (Host)' : 'You')
+                            : player.displayName,
                         style: AppTypography.labelSm.copyWith(
+                          fontSize: 10,
                           fontWeight: FontWeight.w700,
                           color: AppColors.primaryNavy,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 3),
                       Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 4,
@@ -548,40 +706,22 @@ class _MultiplayerBoardPrepScreenState
                               : AppColors.surfaceContainerHigh,
                           borderRadius: AppRadii.roundedFull,
                         ),
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                player.isBoardConfirmed
-                                    ? Icons.check_circle_rounded
-                                    : Icons.circle,
-                                size: 10,
-                                color: player.isBoardConfirmed
-                                    ? AppColors.readyGreen
-                                    : AppColors.textSecondary,
-                              ),
-                              const SizedBox(width: 3),
-                              Text(
-                                player.isBoardConfirmed ? 'READY' : 'PREP',
-                                style: AppTypography.labelSm.copyWith(
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.w800,
-                                  color: player.isBoardConfirmed
-                                      ? AppColors.readyGreen
-                                      : AppColors.textSecondary,
-                                ),
-                              ),
-                            ],
+                        child: Text(
+                          player.isBoardConfirmed ? 'READY' : 'PREPARING',
+                          style: AppTypography.labelSm.copyWith(
+                            fontSize: 8.5,
+                            fontWeight: FontWeight.w800,
+                            color: player.isBoardConfirmed
+                                ? AppColors.readyGreen
+                                : AppColors.textSecondary,
                           ),
                         ),
                       ),
                     ],
                   ),
-                );
-              }).toList(),
-            ),
+                ),
+              );
+            }).toList(),
           ),
           const SizedBox(height: 10),
           Row(
@@ -721,12 +861,23 @@ class _MultiplayerBoardPrepScreenState
   Widget _buildInteractiveBoard(
     MultiplayerBoardPrepState state,
     MultiplayerBoardPrepNotifier notifier,
+    dynamic customization,
   ) {
-    return AppCard(
+    final theme = BoardThemeConfig.fromId(
+      customization.boardThemeId as int? ?? 1,
+    );
+    final isBold = (customization.numberStyleId as int? ?? 5) == 6;
+
+    return Container(
       padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: theme.boardBackground,
+        borderRadius: AppRadii.roundedLg,
+        border: Border.all(color: theme.boardBorder, width: 1.5),
+      ),
       child: Stack(
         children: [
-          // 5x5 Grid
+          // 5x5 Grid (Strict 25 unique numbers 01-25)
           GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
@@ -753,21 +904,19 @@ class _MultiplayerBoardPrepScreenState
                       : Matrix4.identity(),
                   decoration: BoxDecoration(
                     color: isSelected
-                        ? const Color(0xFFFFDAD6)
-                        : AppColors.surface,
+                        ? theme.cellCalledBackground
+                        : theme.cellAvailableBackground,
                     borderRadius: AppRadii.roundedMd,
                     border: Border.all(
                       color: isSelected
                           ? AppColors.primaryCoral
-                          : AppColors.surfaceContainerHigh,
+                          : theme.cellAvailableBorder,
                       width: isSelected ? 2.0 : 1.0,
                     ),
                     boxShadow: isSelected
                         ? [
                             BoxShadow(
-                              color: AppColors.primaryCoral.withValues(
-                                alpha: 0.3,
-                              ),
+                              color: AppColors.primaryCoral.withAlpha(80),
                               blurRadius: 6,
                               offset: const Offset(0, 2),
                             ),
@@ -777,11 +926,14 @@ class _MultiplayerBoardPrepScreenState
                   child: Center(
                     child: Text(
                       number.toString().padLeft(2, '0'),
-                      style: AppTypography.headlineSm.copyWith(
-                        fontWeight: FontWeight.w800,
+                      style: TextStyle(
+                        fontFamily: AppTypography.fontFamily,
+                        fontSize: 18,
+                        fontWeight: isBold ? FontWeight.w900 : FontWeight.w700,
+                        letterSpacing: isBold ? -0.5 : 0.0,
                         color: isSelected
-                            ? AppColors.primaryCoral
-                            : AppColors.primaryNavy,
+                            ? theme.cellCalledTextColor
+                            : theme.cellAvailableTextColor,
                       ),
                     ),
                   ),
@@ -795,7 +947,7 @@ class _MultiplayerBoardPrepScreenState
             Positioned.fill(
               child: Container(
                 decoration: BoxDecoration(
-                  color: AppColors.surface.withValues(alpha: 0.85),
+                  color: AppColors.surface.withAlpha(215),
                   borderRadius: AppRadii.roundedLg,
                 ),
                 child: Column(
@@ -882,6 +1034,9 @@ class _MultiplayerBoardPrepScreenState
     MultiplayerBoardPrepState state,
     MultiplayerBoardPrepNotifier notifier,
   ) {
+    final unreadyPlayers = state.players.where((p) => !p.isBoardConfirmed).toList();
+    final readyCount = state.readyCount;
+
     return Container(
       color: Colors.black54,
       alignment: Alignment.center,
@@ -891,6 +1046,23 @@ class _MultiplayerBoardPrepScreenState
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFDAD6),
+                borderRadius: AppRadii.roundedFull,
+              ),
+              child: Text(
+                'HOST CONTROLS',
+                style: AppTypography.labelSm.copyWith(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 10,
+                  color: const Color(0xFF93000A),
+                  letterSpacing: 0.8,
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
             Container(
               width: 54,
               height: 54,
@@ -914,13 +1086,88 @@ class _MultiplayerBoardPrepScreenState
             ),
             const SizedBox(height: 6),
             Text(
-              'Some players have not confirmed their boards. Choose how to proceed:',
+              'Some players haven\'t confirmed their boards. Choose how to proceed:',
               style: AppTypography.bodySm.copyWith(
                 color: AppColors.textSecondary,
               ),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 18),
+            const SizedBox(height: 12),
+
+            // Highlighted unready player cards
+            if (unreadyPlayers.isNotEmpty)
+              Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceContainerLow,
+                  borderRadius: AppRadii.roundedMd,
+                  border: Border.all(color: AppColors.structuralBorder),
+                ),
+                child: Column(
+                  children: unreadyPlayers.map((p) {
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              CircleAvatar(
+                                radius: 14,
+                                backgroundColor: Color(
+                                  int.parse(p.avatarColorHex.replaceFirst('#', '0xFF')),
+                                ),
+                                child: Text(
+                                  p.displayName.isNotEmpty ? p.displayName[0].toUpperCase() : '?',
+                                  style: const TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    p.displayName,
+                                    style: AppTypography.labelMd.copyWith(
+                                      fontWeight: FontWeight.w700,
+                                      color: AppColors.primaryNavy,
+                                    ),
+                                  ),
+                                  Text(
+                                    'Not confirmed yet',
+                                    style: AppTypography.bodySm.copyWith(
+                                      fontSize: 10,
+                                      color: const Color(0xFFBA1A1A),
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: const BoxDecoration(
+                              color: Color(0xFFFFDAD6),
+                              borderRadius: AppRadii.roundedFull,
+                            ),
+                            child: Text(
+                              'UNREADY',
+                              style: AppTypography.labelSm.copyWith(
+                                fontSize: 9,
+                                fontWeight: FontWeight.w800,
+                                color: const Color(0xFF93000A),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+
             PrimaryButton(
               label: 'EXTEND TIMER (+30s)',
               onPressed: () => notifier.extendTimer(seconds: 30),
@@ -928,8 +1175,25 @@ class _MultiplayerBoardPrepScreenState
             ),
             const SizedBox(height: 10),
             SecondaryButton(
-              label: 'DISMISS',
+              label: readyCount >= 2 ? 'REMOVE UNREADY PLAYERS' : 'AUTO-FILL & START MATCH',
+              onPressed: () {
+                if (readyCount >= 2) {
+                  notifier.removeUnreadyPlayers();
+                } else {
+                  notifier.handleTimeout(autoFill: true);
+                }
+              },
+              icon: readyCount >= 2 ? Icons.person_remove_rounded : Icons.play_arrow_rounded,
+            ),
+            const SizedBox(height: 8),
+            TextButton(
               onPressed: notifier.dismissExpiredModal,
+              child: Text(
+                'DISMISS',
+                style: AppTypography.labelMd.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+              ),
             ),
           ],
         ),

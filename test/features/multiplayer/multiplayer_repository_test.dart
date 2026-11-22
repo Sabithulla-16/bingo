@@ -20,6 +20,9 @@ class MockAuthRepository implements AuthRepository {
   bool get isAuthenticated => currentProfile != null;
 
   @override
+  bool get isGuest => currentProfile?.isGuest ?? false;
+
+  @override
   Stream<AppAuthState> get authStateChanges => Stream.value(
     currentProfile != null
         ? Authenticated(currentProfile!)
@@ -100,8 +103,28 @@ class MockProfileRepository implements ProfileRepository {
   }
 
   @override
+  Stream<PlayerProfile> watchProfile(String userId) {
+    final p = profiles[userId];
+    if (p != null) return Stream.value(p);
+    return const Stream.empty();
+  }
+
+  @override
+  Stream<PlayerCareerStats> watchCareerStats(String userId) =>
+      Stream.value(const PlayerCareerStats());
+
+  @override
   Future<PlayerCareerStats> getCareerStats(String userId) async =>
       const PlayerCareerStats();
+
+  @override
+  Future<void> recordMatchResult({
+    required String userId,
+    required MatchOutcome outcome,
+    required int linesClaimed,
+    required int callsCount,
+    required bool isMultiplayer,
+  }) async {}
 
   @override
   Future<PlayerPreferences> getPreferences() async => const PlayerPreferences();
@@ -170,8 +193,8 @@ void main() {
 
         // Switch to Bob
         final bobProfile = PlayerProfile(
-          id: 'guest_bob_2',
-          displayName: 'Guest Bob',
+          id: 'challenger_bob_2',
+          displayName: 'Challenger Bob',
           email: 'bob@bingo.dev',
           avatarColorHex: '#20243A',
           chips: 500,
@@ -186,7 +209,7 @@ void main() {
 
         final players = await repository.getRoomPlayers(room.id);
         expect(players.length, equals(2));
-        expect(players[1].userId, equals('guest_bob_2'));
+        expect(players[1].userId, equals('challenger_bob_2'));
         expect(players[1].seatIndex, equals(1));
         expect(players[1].isHost, isFalse);
         expect(players[1].isReady, isFalse);

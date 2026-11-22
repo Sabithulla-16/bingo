@@ -7,11 +7,13 @@ import '../../../app/theme/app_radii.dart';
 import '../../../app/theme/app_typography.dart';
 import '../../../core/game_engine/bingo_board.dart';
 import '../../../core/game_engine/board_coordinate.dart';
+import '../../../core/theme/board_theme_config.dart';
 import '../../../core/widgets/bingo_board_grid.dart';
 import '../../../core/widgets/primary_button.dart';
 import '../../../core/widgets/responsive_scaffold.dart';
 import '../../../core/widgets/secondary_button.dart';
 import '../../../core/widgets/status_badge.dart';
+import '../../store/data/store_repository.dart';
 import '../presentation/single_player_game_notifier.dart';
 
 /// Single Player Board Preparation Screen (Stitch Screen ID: `c059f8f36a2f4a808b71bfa6cd36131e`)
@@ -117,6 +119,7 @@ class _SinglePlayerBoardPrepScreenState
     final board = ref.watch(preparedBoardProvider);
     final isValid = board.isFilledAndValid;
     final unassigned = board.unassignedNumbers;
+    final customization = ref.watch(playerCustomizationProvider);
 
     return ResponsiveScaffold(
       appBar: AppBar(
@@ -161,6 +164,8 @@ class _SinglePlayerBoardPrepScreenState
               matrix: board.numbers,
               isInteractive: true,
               onNumberTapped: _handleCellTapped,
+              themeConfig: BoardThemeConfig.fromId(customization.boardThemeId),
+              numberStyleId: customization.numberStyleId,
             ),
 
             if (_selectedCellIndex != null) ...[

@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/config/app_config.dart';
+import '../../core/errors/error_logger.dart';
 
 /// Centralized service encapsulating Supabase client operations.
 class SupabaseService {
@@ -19,10 +20,12 @@ class SupabaseService {
   static bool get isInitialized => _client != null;
 
   /// Initializes the Supabase SDK.
-  /// If credentials are placeholders, it logs safely and continues without crashing.
   static Future<void> initialize() async {
     if (!AppConfig.hasValidSupabaseCredentials) {
-      // In development / testing mode with placeholder credentials.
+      ErrorLogger.logInfo(
+        'Supabase initialized with placeholder credentials. Real auth disabled.',
+        category: 'bingo.supabase',
+      );
       return;
     }
 
@@ -35,8 +38,12 @@ class SupabaseService {
         ),
       );
       _client = supabase.client;
-    } catch (_) {
-      // Allow local development and offline mock tests to proceed
+      ErrorLogger.logInfo(
+        'Supabase client successfully initialized (${AppConfig.supabaseUrl})',
+        category: 'bingo.supabase',
+      );
+    } catch (e, st) {
+      ErrorLogger.logUnhandled(e, st, source: 'SupabaseService.initialize');
     }
   }
 }

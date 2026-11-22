@@ -20,8 +20,23 @@ abstract class ProfileRepository {
     required String avatarColorHex,
   });
 
+  /// Listens to real-time updates of a player profile.
+  Stream<PlayerProfile> watchProfile(String userId);
+
   /// Fetches lifetime career statistics for the specified user.
   Future<PlayerCareerStats> getCareerStats(String userId);
+
+  /// Listens to real-time updates of lifetime career statistics.
+  Stream<PlayerCareerStats> watchCareerStats(String userId);
+
+  /// Authoritatively records a verified match result and updates career stats.
+  Future<void> recordMatchResult({
+    required String userId,
+    required MatchOutcome outcome,
+    required int linesClaimed,
+    required int callsCount,
+    required bool isMultiplayer,
+  });
 
   /// Fetches local client preferences (sound, haptics, remember me).
   Future<PlayerPreferences> getPreferences();

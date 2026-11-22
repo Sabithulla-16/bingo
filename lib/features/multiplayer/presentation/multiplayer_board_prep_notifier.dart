@@ -22,6 +22,7 @@ class MultiplayerBoardPrepState {
   final double progressFraction;
   final bool isExpiredModalOpen;
   final String? errorMessage;
+  final String? currentUserId;
 
   const MultiplayerBoardPrepState({
     this.room,
@@ -35,20 +36,24 @@ class MultiplayerBoardPrepState {
     this.progressFraction = 1.0,
     this.isExpiredModalOpen = false,
     this.errorMessage,
+    this.currentUserId,
   });
 
   bool get isHost {
-    if (room == null || players.isEmpty) return false;
-    final userState = currentUserState;
-    return userState?.isHost ?? false;
+    if (room != null &&
+        currentUserId != null &&
+        room!.hostId == currentUserId) {
+      return true;
+    }
+    return currentUserState?.isHost ?? false;
   }
 
   MultiplayerPlayerState? get currentUserState {
-    try {
-      return players.firstWhere((p) => p.isBoardConfirmed == isConfirmed);
-    } catch (_) {
-      return players.firstOrNull;
+    if (currentUserId != null) {
+      final user = players.where((p) => p.userId == currentUserId).firstOrNull;
+      if (user != null) return user;
     }
+    return players.firstOrNull;
   }
 
   int get readyCount => players.where((p) => p.isBoardConfirmed).length;
@@ -68,6 +73,7 @@ class MultiplayerBoardPrepState {
     double? progressFraction,
     bool? isExpiredModalOpen,
     String? errorMessage,
+    String? currentUserId,
   }) {
     return MultiplayerBoardPrepState(
       room: room ?? this.room,
@@ -83,6 +89,7 @@ class MultiplayerBoardPrepState {
       progressFraction: progressFraction ?? this.progressFraction,
       isExpiredModalOpen: isExpiredModalOpen ?? this.isExpiredModalOpen,
       errorMessage: errorMessage,
+      currentUserId: currentUserId ?? this.currentUserId,
     );
   }
 }
@@ -108,9 +115,11 @@ class MultiplayerBoardPrepNotifier
   final MultiplayerRepository repository;
   final AuthRepository authRepo;
 
+  StreamSubscription<Room>? _roomSub;
   StreamSubscription<MultiplayerGame>? _gameSub;
   StreamSubscription<List<MultiplayerPlayerState>>? _playersSub;
   Timer? _countdownTimer;
+  Timer? _fallbackPollTimer;
   int _totalDurationSeconds = 45;
 
   MultiplayerBoardPrepNotifier({
@@ -121,6 +130,7 @@ class MultiplayerBoardPrepNotifier
          MultiplayerBoardPrepState(
            board: BingoBoard.quickShuffle(),
            isLoading: true,
+           currentUserId: authRepo.currentUserId,
          ),
        ) {
     _init();
@@ -129,6 +139,8 @@ class MultiplayerBoardPrepNotifier
   @override
   void dispose() {
     _countdownTimer?.cancel();
+    _fallbackPollTimer?.cancel();
+    _roomSub?.cancel();
     _gameSub?.cancel();
     _playersSub?.cancel();
     super.dispose();
@@ -141,7 +153,12 @@ class MultiplayerBoardPrepNotifier
 
       _totalDurationSeconds = room?.prepTimeSeconds ?? 45;
 
-      state = state.copyWith(room: room, game: game, isLoading: false);
+      state = state.copyWith(
+        room: room,
+        game: game,
+        isLoading: false,
+        currentUserId: authRepo.currentUserId,
+      );
 
       _updateCountdown();
       _countdownTimer = Timer.periodic(
@@ -149,13 +166,19 @@ class MultiplayerBoardPrepNotifier
         (_) => _updateCountdown(),
       );
 
-      // Listen to game updates
+      // 1. Listen to authoritative Room updates
+      _roomSub = repository.watchRoom(roomId).listen((updatedRoom) {
+        if (!mounted) return;
+        state = state.copyWith(room: updatedRoom);
+      });
+
+      // 2. Listen to Game entity updates
       _gameSub = repository.watchGame(game.id).listen((updatedGame) {
         if (!mounted) return;
         state = state.copyWith(game: updatedGame);
       });
 
-      // Listen to player readiness updates
+      // 3. Listen to player readiness updates
       _playersSub = repository.watchGamePlayers(game.id).listen((
         updatedPlayers,
       ) {
@@ -168,6 +191,23 @@ class MultiplayerBoardPrepNotifier
           players: updatedPlayers,
           isConfirmed: userState?.isBoardConfirmed ?? state.isConfirmed,
         );
+      });
+
+      // 4. Resilience Fallback Polling every 3 seconds (Part 4 requirement)
+      _fallbackPollTimer = Timer.periodic(const Duration(seconds: 3), (
+        _,
+      ) async {
+        if (!mounted) return;
+        try {
+          final refreshedRoom = await repository.getRoom(roomId);
+          final refreshedGame = await repository.getGameForRoom(roomId);
+          if (mounted) {
+            state = state.copyWith(
+              room: refreshedRoom ?? state.room,
+              game: refreshedGame,
+            );
+          }
+        } catch (_) {}
       });
     } catch (e) {
       if (mounted) {
@@ -189,7 +229,8 @@ class MultiplayerBoardPrepNotifier
     final fraction = (remainingSec / _totalDurationSeconds).clamp(0.0, 1.0);
 
     final isExpired = remainingSec <= 0;
-    final showExpiredModal = isExpired && !state.isConfirmed && state.isHost;
+    final showExpiredModal =
+        isExpired && !state.allPlayersReady && state.isHost;
 
     if (mounted) {
       state = state.copyWith(
@@ -197,6 +238,11 @@ class MultiplayerBoardPrepNotifier
         progressFraction: fraction,
         isExpiredModalOpen: showExpiredModal,
       );
+
+      // Auto-trigger fallback timeout if non-host or expired for more than 3 seconds
+      if (isExpired && !state.isHost && remainingMs < -3000) {
+        handleTimeout(autoFill: true);
+      }
     }
   }
 
@@ -229,6 +275,7 @@ class MultiplayerBoardPrepNotifier
   Future<void> confirmBoard() async {
     if (state.isConfirmed || state.game == null) return;
 
+    // Optimistic lock
     state = state.copyWith(isConfirmed: true, selectedCoordinate: () => null);
 
     try {
@@ -255,6 +302,39 @@ class MultiplayerBoardPrepNotifier
       );
       state = state.copyWith(isExpiredModalOpen: false);
     } catch (_) {}
+  }
+
+  Future<void> handleTimeout({bool autoFill = true}) async {
+    if (state.game == null) return;
+    try {
+      await repository.handlePrepTimeout(
+        gameId: state.game!.id,
+        autoFill: autoFill,
+      );
+      state = state.copyWith(isExpiredModalOpen: false);
+    } catch (e) {
+      if (mounted) {
+        state = state.copyWith(errorMessage: 'Timeout error: $e');
+      }
+    }
+  }
+
+  Future<void> removeUnreadyPlayers() async {
+    if (state.game == null) return;
+    try {
+      await repository.removeUnreadyPlayers(
+        roomId: roomId,
+        gameId: state.game!.id,
+      );
+      state = state.copyWith(isExpiredModalOpen: false);
+    } catch (e) {
+      if (mounted) {
+        state = state.copyWith(
+          isExpiredModalOpen: false,
+          errorMessage: 'Failed to remove players: $e',
+        );
+      }
+    }
   }
 
   void dismissExpiredModal() {

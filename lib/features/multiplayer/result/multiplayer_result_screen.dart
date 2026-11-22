@@ -9,29 +9,131 @@ import '../../../core/widgets/app_card.dart';
 import '../../../core/widgets/player_avatar.dart';
 import '../../../core/widgets/primary_button.dart';
 import '../../../core/widgets/secondary_button.dart';
+import '../../../core/widgets/victory_effect_overlay.dart';
 import '../../room_statistics/domain/room_statistics.dart';
+import '../../store/data/store_repository.dart';
+import '../../../data/supabase/supabase_provider.dart';
+import '../../achievements/data/achievements_repository.dart';
+import '../../earn_chips/data/rewards_repository.dart';
+import '../../profile/domain/player_career_stats.dart';
+import '../domain/room.dart';
+import '../data/multiplayer_repository_provider.dart';
 import '../presentation/multiplayer_result_notifier.dart';
 
 /// Stitch Screen 14: Multiplayer Match Result & Room Leaderboard
 /// Reference: `projects/1917718787847945379/files/16101061057795612716`
-class MultiplayerResultScreen extends ConsumerWidget {
+class MultiplayerResultScreen extends ConsumerStatefulWidget {
   final String roomId;
 
   const MultiplayerResultScreen({super.key, required this.roomId});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(multiplayerResultNotifierProvider(roomId));
-    final notifier = ref.read(
-      multiplayerResultNotifierProvider(roomId).notifier,
-    );
+  ConsumerState<MultiplayerResultScreen> createState() =>
+      _MultiplayerResultScreenState();
+}
 
-    // Watch for host starting next round: automatically navigate to board prep
+class _MultiplayerResultScreenState
+    extends ConsumerState<MultiplayerResultScreen> {
+  static final Set<String> _recordedRooms = {};
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _recordMultiplayerResultOnce();
+    });
+  }
+
+  Future<void> _recordMultiplayerResultOnce() async {
+    final state = ref.read(multiplayerResultNotifierProvider(widget.roomId));
+    final matchKey = '${widget.roomId}_round_${state.roundNumber}';
+    if (_recordedRooms.contains(matchKey)) return;
+    _recordedRooms.add(matchKey);
+
+    final userId = ref.read(authRepositoryProvider).currentUserId ?? 'guest';
+    final isVictory = state.isYouWinner;
+    final outcome = isVictory ? MatchOutcome.victory : MatchOutcome.defeat;
+    final myOutcome = state.playerResults.firstWhere(
+      (p) => p.isYou || p.userId == userId,
+      orElse: () => const RoundPlayerOutcome(userId: '', displayName: ''),
+    );
+    final linesClaimed = myOutcome.linesClaimedCount;
+    final callsCount = state.totalCalls;
+
+    // 1. Authoritative career stats update:
+    // Only record client-side career stats if offline. In online multiplayer,
+    // server-authoritative RPCs (rpc_claim_line / rpc_forfeit_match) atomically
+    // update player_statistics in Supabase.
+    final multiRepo = ref.read(multiplayerRepositoryProvider);
+    if (!multiRepo.isOnline) {
+      await ref
+          .read(profileRepositoryProvider)
+          .recordMatchResult(
+            userId: userId,
+            outcome: outcome,
+            linesClaimed: linesClaimed,
+            callsCount: callsCount,
+            isMultiplayer: true,
+          );
+    }
+
+    // 2. Rewards repository update
+    await ref
+        .read(rewardsRepositoryProvider)
+        .recordMatchCompleted(isWinner: isVictory, isMultiplayer: true);
+
+    // 3. Update Achievements
+    final achRepo = ref.read(achievementsRepositoryProvider);
+    final stats = await ref
+        .read(profileRepositoryProvider)
+        .getCareerStats(userId);
+
+    await achRepo.evaluateFromStats(
+      stats,
+      isMultiplayer: true,
+      isVictory: isVictory,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final state = ref.watch(multiplayerResultNotifierProvider(widget.roomId));
+    final notifier = ref.read(
+      multiplayerResultNotifierProvider(widget.roomId).notifier,
+    );
+    final customization = ref.watch(playerCustomizationProvider);
+
+    // Watch for host starting next round or returning to lobby
     ref.listen<MultiplayerResultState>(
-      multiplayerResultNotifierProvider(roomId),
+      multiplayerResultNotifierProvider(widget.roomId),
       (previous, next) {
-        if (previous != null && next.roundNumber > previous.roundNumber) {
-          context.go(AppRoutes.multiplayerBoardPrepPath(roomId));
+        if (previous == null || previous.isLoading || next.isLoading) return;
+
+        // If the match ended due to forfeit, never auto-advance to board prep
+        if (next.isForfeit) return;
+
+        // If current user is recorded as forfeited, navigate Home immediately
+        final userOutcome = next.playerResults.where((p) => p.isYou).firstOrNull;
+        if (userOutcome?.isForfeited == true) {
+          context.go(AppRoutes.home);
+          return;
+        }
+
+        final roundIncremented =
+            next.roundNumber > previous.roundNumber && previous.roundNumber > 0;
+        final statusChangedToPrep = next.roomStatus == RoomStatus.preparing &&
+            previous.roomStatus != RoomStatus.preparing;
+        final statusChangedToWaiting = next.roomStatus == RoomStatus.waiting &&
+            previous.roomStatus != RoomStatus.waiting;
+
+        if (roundIncremented || statusChangedToPrep) {
+          try {
+            context.go(AppRoutes.multiplayerBoardPrepPath(widget.roomId));
+          } catch (_) {}
+        } else if (statusChangedToWaiting) {
+          try {
+            context.go(AppRoutes.roomLobbyPath(widget.roomId));
+          } catch (_) {}
         }
       },
     );
@@ -57,9 +159,9 @@ class MultiplayerResultScreen extends ConsumerWidget {
                         children: [
                           _buildRoomContextBanner(state),
                           const SizedBox(height: 12),
-                          _buildMatchResultHero(state),
+                          _buildMatchResultHero(state, customization),
                           const SizedBox(height: 12),
-                          _buildFinalMatchResultsCard(state),
+                          _buildFinalMatchResultsCard(state, customization),
                           const SizedBox(height: 12),
                           _buildMatchOverviewCard(state),
                           const SizedBox(height: 12),
@@ -227,168 +329,187 @@ class MultiplayerResultScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildMatchResultHero(MultiplayerResultState state) {
+  Widget _buildMatchResultHero(
+    MultiplayerResultState state,
+    dynamic customization,
+  ) {
     final isYou = state.isYouWinner;
     final winnerName = state.winnerName;
 
-    return AppCard(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-      child: Column(
-        children: [
-          // Minimalist Confetti / Starburst Graphic
-          Stack(
-            alignment: Alignment.center,
-            children: [
-              Container(
-                width: 80,
-                height: 80,
-                decoration: BoxDecoration(
-                  color: isYou
-                      ? const Color(0xFFFFDF9B)
-                      : const Color(0xFFFFDF9B),
-                  shape: BoxShape.circle,
-                ),
-              ),
-              Container(
-                width: 64,
-                height: 64,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFEDC157),
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.08),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: const Icon(
-                  Icons.emoji_events_rounded,
-                  color: AppColors.primaryNavy,
-                  size: 36,
-                ),
-              ),
-              Positioned(
-                top: 0,
-                right: 0,
-                child: Container(
-                  width: 14,
-                  height: 14,
-                  decoration: const BoxDecoration(
-                    color: AppColors.primaryCoral,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-              ),
-              Positioned(
-                bottom: 2,
-                left: 2,
-                child: Container(
-                  width: 12,
-                  height: 12,
-                  decoration: const BoxDecoration(
-                    color: AppColors.lightLavender,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            decoration: BoxDecoration(
-              color: const Color(0xFFFFDF9B),
-              borderRadius: AppRadii.roundedFull,
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(
-                  Icons.stars_rounded,
-                  size: 14,
-                  color: AppColors.primaryNavy,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  isYou
-                      ? 'YOU WON THE ROUND!'
-                      : '${winnerName.toUpperCase()} WON THE ROUND',
-                  style: AppTypography.labelSm.copyWith(
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.primaryNavy,
-                    fontSize: 11,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            isYou ? 'VICTORY!' : '${winnerName.toUpperCase()} WON!',
-            style: AppTypography.displayHeroMobile.copyWith(
-              color: AppColors.primaryNavy,
-              fontSize: 32,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Text(
-              isYou
-                  ? 'Outstanding game! You completed BINGO ahead of all opponents!'
-                  : '$winnerName completed BINGO before everyone else. Great match and close board finish!',
-              textAlign: TextAlign.center,
-              style: AppTypography.bodySm.copyWith(
-                color: AppColors.textSecondary,
-                fontSize: 13,
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: AppColors.surfaceContainerLow,
-              borderRadius: AppRadii.roundedFull,
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
+    return VictoryEffectOverlay(
+      isGoldenBurst: isYou && (customization.hasGoldenBurst as bool? ?? false),
+      child: AppCard(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+        child: Column(
+          children: [
+            // Minimalist Confetti / Starburst Graphic
+            Stack(
+              alignment: Alignment.center,
               children: [
                 Container(
-                  width: 6,
-                  height: 6,
-                  decoration: const BoxDecoration(
-                    color: AppColors.primaryCoral,
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    color: isYou
+                        ? const Color(0xFFFFDF9B)
+                        : const Color(0xFFFFDF9B),
                     shape: BoxShape.circle,
                   ),
                 ),
-                const SizedBox(width: 6),
-                Text(
-                  'Finished on Call #${state.totalCalls}',
-                  style: AppTypography.bodySm.copyWith(fontSize: 11),
+                Container(
+                  width: 64,
+                  height: 64,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEDC157),
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.08),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.emoji_events_rounded,
+                    color: AppColors.primaryNavy,
+                    size: 36,
+                  ),
                 ),
-                const SizedBox(width: 6),
-                const Text(
-                  '•',
-                  style: TextStyle(color: AppColors.textSecondary),
+                Positioned(
+                  top: 0,
+                  right: 0,
+                  child: Container(
+                    width: 14,
+                    height: 14,
+                    decoration: const BoxDecoration(
+                      color: AppColors.primaryCoral,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
                 ),
-                const SizedBox(width: 6),
-                Text(
-                  '${state.playerResults.length} Players Active',
-                  style: AppTypography.bodySm.copyWith(fontSize: 11),
+                Positioned(
+                  bottom: 2,
+                  left: 2,
+                  child: Container(
+                    width: 12,
+                    height: 12,
+                    decoration: const BoxDecoration(
+                      color: AppColors.lightLavender,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
                 ),
               ],
             ),
-          ),
-        ],
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFDF9B),
+                borderRadius: AppRadii.roundedFull,
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.stars_rounded,
+                    size: 14,
+                    color: AppColors.primaryNavy,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    state.isForfeit
+                        ? (isYou
+                            ? 'OPPONENT FORFEITED • YOU WON!'
+                            : 'MATCH FORFEITED')
+                        : (isYou
+                            ? 'YOU WON THE ROUND!'
+                            : '${winnerName.toUpperCase()} WON THE ROUND'),
+                    style: AppTypography.labelSm.copyWith(
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.primaryNavy,
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              state.isForfeit
+                  ? (isYou ? 'VICTORY BY FORFEIT!' : 'MATCH FORFEITED')
+                  : (isYou ? 'VICTORY!' : '${winnerName.toUpperCase()} WON!'),
+              style: AppTypography.displayHeroMobile.copyWith(
+                color: AppColors.primaryNavy,
+                fontSize: 32,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Text(
+                state.isForfeit
+                    ? (isYou
+                        ? 'Your opponent forfeited the ongoing match. Victory and rewards have been awarded to you!'
+                        : 'The match concluded due to player forfeiture.')
+                    : (isYou
+                        ? 'Outstanding game! You completed BINGO ahead of all opponents!'
+                        : '$winnerName completed BINGO before everyone else. Great match and close board finish!'),
+                textAlign: TextAlign.center,
+                style: AppTypography.bodySm.copyWith(
+                  color: AppColors.textSecondary,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceContainerLow,
+                borderRadius: AppRadii.roundedFull,
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 6,
+                    height: 6,
+                    decoration: const BoxDecoration(
+                      color: AppColors.primaryCoral,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Finished on Call #${state.totalCalls}',
+                    style: AppTypography.bodySm.copyWith(fontSize: 11),
+                  ),
+                  const SizedBox(width: 6),
+                  const Text(
+                    '•',
+                    style: TextStyle(color: AppColors.textSecondary),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    '${state.playerResults.length} Players Active',
+                    style: AppTypography.bodySm.copyWith(fontSize: 11),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildFinalMatchResultsCard(MultiplayerResultState state) {
+  Widget _buildFinalMatchResultsCard(
+    MultiplayerResultState state,
+    dynamic customization,
+  ) {
     return AppCard(
       padding: const EdgeInsets.all(14),
       child: Column(
@@ -411,7 +532,9 @@ class MultiplayerResultScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 12),
-          ...state.playerResults.map((player) => _buildPlayerResultRow(player)),
+          ...state.playerResults.map(
+            (player) => _buildPlayerResultRow(player, customization),
+          ),
           const SizedBox(height: 8),
           Row(
             children: [
@@ -437,7 +560,10 @@ class MultiplayerResultScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildPlayerResultRow(RoundPlayerOutcome player) {
+  Widget _buildPlayerResultRow(
+    RoundPlayerOutcome player,
+    dynamic customization,
+  ) {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(10),
@@ -465,6 +591,10 @@ class MultiplayerResultScreen extends ConsumerWidget {
                     PlayerAvatar(
                       displayName: player.displayName,
                       size: 34,
+                      avatarId: player.isYou ? customization.avatarId : null,
+                      hasGoldenFrame: player.isYou
+                          ? customization.hasGoldenFrame
+                          : false,
                       backgroundColor: Color(
                         int.parse(
                           player.avatarColorHex.replaceFirst('#', '0xFF'),
@@ -1063,7 +1193,7 @@ class MultiplayerResultScreen extends ConsumerWidget {
                 Text(
                   state.isHost
                       ? 'Host Controls Active • Code ${state.roomCode} preserved'
-                      : 'Waiting for host to launch next round...',
+                      : 'Waiting for host to launch next round or return to room...',
                   style: AppTypography.labelSm.copyWith(fontSize: 10),
                 ),
               ],
@@ -1075,7 +1205,7 @@ class MultiplayerResultScreen extends ConsumerWidget {
               label: state.isStartingNextRound
                   ? 'PREPARING ROUND ${(state.roundNumber + 1).toString().padLeft(2, '0')}...'
                   : 'START NEXT ROUND',
-              icon: Icons.arrow_forward_rounded,
+              icon: Icons.replay_rounded,
               isLoading: state.isStartingNextRound,
               onPressed: () => notifier.startNextRound(),
             ),
@@ -1089,6 +1219,12 @@ class MultiplayerResultScreen extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 8),
+            SecondaryButton(
+              label: 'BACK TO ROOM LOBBY',
+              icon: Icons.meeting_room_rounded,
+              onPressed: () => notifier.returnToLobby(),
+            ),
+            const SizedBox(height: 8),
           ],
           SecondaryButton(
             label: 'VIEW DETAILED ROOM STATS',
@@ -1098,9 +1234,14 @@ class MultiplayerResultScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 8),
           TextButton(
-            onPressed: () => context.go(AppRoutes.home),
+            onPressed: () async {
+              await notifier.leaveRoom();
+              if (context.mounted) {
+                context.go(AppRoutes.home);
+              }
+            },
             child: Text(
-              'RETURN TO MAIN MENU',
+              'LEAVE ROOM & RETURN HOME',
               style: AppTypography.labelMd.copyWith(
                 color: AppColors.textSecondary,
                 fontWeight: FontWeight.w700,

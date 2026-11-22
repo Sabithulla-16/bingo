@@ -5,6 +5,9 @@ import '../../../app/router/app_routes.dart';
 import '../../../app/theme/app_colors.dart';
 import '../../../app/theme/app_radii.dart';
 import '../../../app/theme/app_typography.dart';
+import '../../../core/errors/app_error.dart';
+import '../../../core/errors/app_error_code.dart';
+import '../../../core/errors/error_handler.dart';
 import '../../../core/widgets/app_card.dart';
 import '../../../core/widgets/app_text_field.dart';
 import '../../../core/widgets/player_avatar.dart';
@@ -12,6 +15,7 @@ import '../../../core/widgets/primary_button.dart';
 import '../../../core/widgets/responsive_scaffold.dart';
 import '../../../core/widgets/status_badge.dart';
 import '../../../data/supabase/supabase_provider.dart';
+import '../../store/data/store_repository.dart';
 import '../data/multiplayer_repository_provider.dart';
 
 /// Create Room Settings Screen (Stitch Screen ID: `44f9713e773b4977b628d9679a0f371c`)
@@ -42,6 +46,20 @@ class _CreateRoomScreenState extends ConsumerState<CreateRoomScreen> {
   }
 
   Future<void> _handleCreateRoom() async {
+    final profile = ref.read(currentProfileProvider);
+    if (profile == null || profile.isGuest) {
+      if (!mounted) return;
+      ErrorHandler.showSnackBar(
+        context,
+        AppError(
+          code: AppErrorCode.sessionExpired,
+          message:
+              'An authenticated account is required to create multiplayer rooms.',
+        ),
+      );
+      return;
+    }
+
     setState(() => _isLoading = true);
 
     try {
@@ -59,12 +77,7 @@ class _CreateRoomScreenState extends ConsumerState<CreateRoomScreen> {
       context.pushReplacement(AppRoutes.multiplayerLobbyPath(room.id));
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to create room: $e'),
-          backgroundColor: AppColors.errorRed,
-        ),
-      );
+      ErrorHandler.handle(e, context: context, operation: 'create_room');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -73,6 +86,7 @@ class _CreateRoomScreenState extends ConsumerState<CreateRoomScreen> {
   @override
   Widget build(BuildContext context) {
     final profile = ref.watch(currentProfileProvider);
+    final customization = ref.watch(playerCustomizationProvider);
 
     return ResponsiveScaffold(
       appBar: AppBar(
@@ -202,6 +216,8 @@ class _CreateRoomScreenState extends ConsumerState<CreateRoomScreen> {
                       ),
                       displayName: profile.displayName,
                       size: 38,
+                      avatarId: customization.avatarId,
+                      hasGoldenFrame: customization.hasGoldenFrame,
                     ),
                     const SizedBox(width: 12),
                     Expanded(

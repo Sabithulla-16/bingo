@@ -8,6 +8,7 @@ import '../../../app/theme/app_typography.dart';
 import '../../../core/widgets/app_card.dart';
 import '../../../core/widgets/player_avatar.dart';
 import '../../../core/widgets/primary_button.dart';
+import '../../store/data/store_repository.dart';
 import '../domain/room_statistics.dart';
 import 'room_statistics_notifier.dart';
 
@@ -29,6 +30,7 @@ class _RoomStatisticsScreenState extends ConsumerState<RoomStatisticsScreen> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(roomStatisticsNotifierProvider(widget.roomId));
+    final customization = ref.watch(playerCustomizationProvider);
     final notifier = ref.read(
       roomStatisticsNotifierProvider(widget.roomId).notifier,
     );
@@ -60,7 +62,7 @@ class _RoomStatisticsScreenState extends ConsumerState<RoomStatisticsScreen> {
                               RoomStatisticsTab.leaderboard) ...[
                             _buildBentoQuickStats(state),
                             const SizedBox(height: 14),
-                            _buildStandingsSection(state),
+                            _buildStandingsSection(state, customization),
                           ] else ...[
                             _buildMatchHistorySection(state),
                           ],
@@ -466,7 +468,10 @@ class _RoomStatisticsScreenState extends ConsumerState<RoomStatisticsScreen> {
     );
   }
 
-  Widget _buildStandingsSection(RoomStatisticsState state) {
+  Widget _buildStandingsSection(
+    RoomStatisticsState state,
+    dynamic customization,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -511,7 +516,7 @@ class _RoomStatisticsScreenState extends ConsumerState<RoomStatisticsScreen> {
         ),
         const SizedBox(height: 10),
         ...state.standings.map(
-          (standing) => _buildDetailedStandingCard(standing),
+          (standing) => _buildDetailedStandingCard(standing, customization),
         ),
         const SizedBox(height: 8),
         Padding(
@@ -529,7 +534,10 @@ class _RoomStatisticsScreenState extends ConsumerState<RoomStatisticsScreen> {
     );
   }
 
-  Widget _buildDetailedStandingCard(RoomPlayerStanding standing) {
+  Widget _buildDetailedStandingCard(
+    RoomPlayerStanding standing,
+    dynamic customization,
+  ) {
     final isRank1 = standing.rank == 1;
 
     return Container(
@@ -569,6 +577,12 @@ class _RoomStatisticsScreenState extends ConsumerState<RoomStatisticsScreen> {
                         PlayerAvatar(
                           displayName: standing.displayName,
                           size: 44,
+                          avatarId: standing.isYou
+                              ? customization.avatarId
+                              : null,
+                          hasGoldenFrame: standing.isYou
+                              ? customization.hasGoldenFrame
+                              : false,
                           backgroundColor: Color(
                             int.parse(
                               standing.avatarColorHex.replaceFirst('#', '0xFF'),

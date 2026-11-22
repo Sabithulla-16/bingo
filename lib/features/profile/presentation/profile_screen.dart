@@ -13,6 +13,7 @@ import '../../../core/widgets/primary_button.dart';
 import '../../../core/widgets/responsive_scaffold.dart';
 import '../../../core/widgets/secondary_button.dart';
 import '../../../data/supabase/supabase_provider.dart';
+import '../../store/data/store_repository.dart';
 import '../domain/player_career_stats.dart';
 import '../domain/player_profile.dart';
 
@@ -56,7 +57,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         onConfirm: () async {
           await ref.read(authStateProvider.notifier).signOut();
           if (mounted) {
-            context.go(AppRoutes.auth);
+            context.go(AppRoutes.splash);
           }
         },
       ),
@@ -68,7 +69,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final currentProfile =
         ref.watch(currentProfileProvider) ??
         PlayerProfile(
-          id: 'valtry-local-user',
+          id: 'guest_profile',
           displayName: 'Valtry',
           email: 'valtry@bingo.app',
           avatarId: 'avatar_coral',
@@ -77,9 +78,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           createdAt: DateTime.now().subtract(const Duration(days: 30)),
           updatedAt: DateTime.now(),
         );
+    final customization = ref.watch(playerCustomizationProvider);
 
     final statsAsync = ref.watch(careerStatsProvider(currentProfile.id));
-    final stats = statsAsync.value ?? PlayerCareerStats.sampleData();
+    final stats = statsAsync.value ?? const PlayerCareerStats();
 
     return ResponsiveScaffold(
       appBar: AppBar(
@@ -120,6 +122,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               child: PlayerAvatar(
                 displayName: currentProfile.displayName,
                 size: 32,
+                avatarId: customization.avatarId,
+                hasGoldenFrame: customization.hasGoldenFrame,
                 backgroundColor: _parseColor(currentProfile.avatarColorHex),
               ),
             ),
@@ -169,6 +173,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       PlayerAvatar(
                         displayName: currentProfile.displayName,
                         size: 64,
+                        avatarId: customization.avatarId,
+                        hasGoldenFrame: customization.hasGoldenFrame,
                         showOnlineIndicator: true,
                         backgroundColor: _parseColor(
                           currentProfile.avatarColorHex,
@@ -548,71 +554,64 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     ],
                   ),
                   const SizedBox(height: 14),
-                  _buildHighlightRow(
-                    'Most Wins in Single Room',
-                    '6 Wins (Friday BINGO)',
-                    AppColors.primaryNavy,
-                  ),
-                  const SizedBox(height: 8),
-                  _buildHighlightRow(
-                    'Highest Lines Claimed',
-                    '${stats.highestLinesClaimed} / 5 Lines (12 times)',
-                    AppColors.primaryNavy,
-                  ),
-                  const SizedBox(height: 8),
-                  _buildHighlightRow(
-                    'Longest Winning Streak',
-                    '${stats.bestStreak} Consecutive',
-                    AppColors.primaryCoral,
-                  ),
-                  const SizedBox(height: 8),
-                  _buildHighlightRow(
-                    'Average Calls per Match',
-                    '${stats.averageCallsPerMatch} Calls',
-                    AppColors.primaryNavy,
-                  ),
+                  if (stats.totalMatches == 0)
+                    Center(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8.0),
+                        child: Column(
+                          children: [
+                            const Icon(
+                              Icons.auto_awesome_rounded,
+                              size: 28,
+                              color: AppColors.textMuted,
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              'No highlights recorded yet',
+                              style: AppTypography.labelMd.copyWith(
+                                color: AppColors.primaryNavy,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Play matches to set streak, victory, and daubing records!',
+                              style: AppTypography.bodySm.copyWith(
+                                color: AppColors.textMuted,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  else ...[
+                    _buildHighlightRow(
+                      'Longest Winning Streak',
+                      '${stats.bestStreak} Consecutive Wins',
+                      AppColors.primaryCoral,
+                    ),
+                    const SizedBox(height: 8),
+                    _buildHighlightRow(
+                      'Highest Lines Claimed',
+                      '${stats.highestLinesClaimed} / 5 Lines',
+                      AppColors.primaryNavy,
+                    ),
+                    const SizedBox(height: 8),
+                    _buildHighlightRow(
+                      'Total Career Wins',
+                      '${stats.wins} Matches Won (${stats.winRatePercentage}% Win Rate)',
+                      AppColors.primaryNavy,
+                    ),
+                    const SizedBox(height: 8),
+                    _buildHighlightRow(
+                      'Average Calls per Match',
+                      '${stats.averageCallsPerMatch.toStringAsFixed(1)} Calls',
+                      AppColors.primaryNavy,
+                    ),
+                  ],
                 ],
               ),
             ),
-
-            const SizedBox(height: 20),
-
-            // Recent Matches History
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'RECENT MATCHES',
-                          style: AppTypography.labelMd.copyWith(
-                            color: AppColors.primaryCoral,
-                          ),
-                        ),
-                        Text(
-                          'Your latest completed games',
-                          style: AppTypography.bodySm,
-                        ),
-                      ],
-                    ),
-                    Text(
-                      'TOTAL (${stats.totalMatches})',
-                      style: AppTypography.labelSm.copyWith(
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                ...stats.recentMatches.map((match) => _buildMatchCard(match)),
-              ],
-            ),
-
-            const SizedBox(height: 20),
 
             // Account Actions
             AppCard(
@@ -759,103 +758,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           const SizedBox(width: 8),
           Text(value, style: AppTypography.labelMd.copyWith(color: valueColor)),
         ],
-      ),
-    );
-  }
-
-  Widget _buildMatchCard(MatchRecord match) {
-    Color badgeBg;
-    Color badgeFg;
-    String badgeText;
-
-    switch (match.outcome) {
-      case MatchOutcome.victory:
-        badgeBg = AppColors.primaryCoral.withAlpha(30);
-        badgeFg = AppColors.primaryCoral;
-        badgeText = 'VICTORY';
-        break;
-      case MatchOutcome.defeat:
-        badgeBg = AppColors.surfaceContainerHigh;
-        badgeFg = AppColors.textSecondary;
-        badgeText = 'DEFEAT';
-        break;
-      case MatchOutcome.draw:
-        badgeBg = AppColors.softYellow.withAlpha(40);
-        badgeFg = AppColors.primaryNavy;
-        badgeText = 'DRAW';
-        break;
-    }
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10.0),
-      child: AppCard(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: badgeBg,
-                    borderRadius: AppRadii.roundedFull,
-                  ),
-                  child: Text(
-                    badgeText,
-                    style: AppTypography.labelSm.copyWith(
-                      color: badgeFg,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-                Text(
-                  match.formattedTimeAgo,
-                  style: AppTypography.labelSm.copyWith(
-                    color: AppColors.textTertiary,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(match.roomName, style: AppTypography.headlineSm),
-                Text(
-                  'Round 0${match.roundNumber}',
-                  style: AppTypography.bodySm.copyWith(
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  '${match.linesClaimed} / 5 Lines Claimed',
-                  style: AppTypography.labelMd.copyWith(
-                    color: match.outcome == MatchOutcome.victory
-                        ? AppColors.primaryCoral
-                        : AppColors.textSecondary,
-                  ),
-                ),
-                Text(
-                  '${match.callsCount} Calls',
-                  style: AppTypography.bodySm.copyWith(
-                    color: AppColors.textTertiary,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
       ),
     );
   }

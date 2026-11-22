@@ -3,8 +3,8 @@ import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_dimensions.dart';
 import '../../app/theme/app_typography.dart';
 
-/// Reusable circular player avatar token with border outline, host indicator,
-/// and online presence status.
+/// Reusable circular player avatar token supporting custom avatar styles,
+/// cosmetic profile frames (Golden Frame), host indicators, and online presence.
 class PlayerAvatar extends StatelessWidget {
   final String displayName;
   final double size;
@@ -12,6 +12,8 @@ class PlayerAvatar extends StatelessWidget {
   final bool showOnlineIndicator;
   final Color? backgroundColor;
   final Color? textColor;
+  final bool hasGoldenFrame;
+  final int? avatarId;
 
   const PlayerAvatar({
     super.key,
@@ -21,6 +23,8 @@ class PlayerAvatar extends StatelessWidget {
     this.showOnlineIndicator = false,
     this.backgroundColor,
     this.textColor,
+    this.hasGoldenFrame = false,
+    this.avatarId,
   });
 
   @override
@@ -36,6 +40,8 @@ class PlayerAvatar extends StatelessWidget {
             ? AppColors.textLight
             : AppColors.primaryNavy);
 
+    final isFunAvatar = avatarId == 7;
+
     return SizedBox(
       width: size,
       height: size,
@@ -43,6 +49,32 @@ class PlayerAvatar extends StatelessWidget {
         clipBehavior: Clip.none,
         alignment: Alignment.center,
         children: [
+          // Golden Profile Frame (Cosmetic Item #9)
+          if (hasGoldenFrame)
+            Container(
+              width: size + 6,
+              height: size + 6,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: const SweepGradient(
+                  colors: [
+                    Color(0xFFFFD700),
+                    Color(0xFFFFF8DC),
+                    Color(0xFFFFA500),
+                    Color(0xFFFFD700),
+                  ],
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFFFFD700).withAlpha(120),
+                    blurRadius: 4,
+                    spreadRadius: 1,
+                  ),
+                ],
+              ),
+            ),
+
+          // Core circular avatar body
           Container(
             width: size,
             height: size,
@@ -50,8 +82,10 @@ class PlayerAvatar extends StatelessWidget {
               color: bg,
               shape: BoxShape.circle,
               border: Border.all(
-                color: AppColors.primaryNavy.withAlpha(25),
-                width: 1.5,
+                color: hasGoldenFrame
+                    ? const Color(0xFFFFD700)
+                    : AppColors.primaryNavy.withAlpha(25),
+                width: hasGoldenFrame ? 2.0 : 1.5,
               ),
               boxShadow: const [
                 BoxShadow(
@@ -62,15 +96,23 @@ class PlayerAvatar extends StatelessWidget {
               ],
             ),
             alignment: Alignment.center,
-            child: Text(
-              initials,
-              style: AppTypography.headlineSm.copyWith(
-                fontSize: size * 0.44,
-                fontWeight: FontWeight.w800,
-                color: fg,
-              ),
-            ),
+            child: isFunAvatar
+                ? Icon(
+                    Icons.face_retouching_natural_rounded,
+                    size: size * 0.55,
+                    color: fg,
+                  )
+                : Text(
+                    initials,
+                    style: AppTypography.headlineSm.copyWith(
+                      fontSize: size * 0.44,
+                      fontWeight: FontWeight.w800,
+                      color: fg,
+                    ),
+                  ),
           ),
+
+          // Host badge indicator
           if (isHost)
             Positioned(
               top: 0,
@@ -89,6 +131,8 @@ class PlayerAvatar extends StatelessWidget {
                 ),
               ),
             ),
+
+          // Online status indicator
           if (showOnlineIndicator)
             Positioned(
               bottom: 0,
@@ -97,9 +141,9 @@ class PlayerAvatar extends StatelessWidget {
                 width: size * 0.25,
                 height: size * 0.25,
                 decoration: BoxDecoration(
-                  color: AppColors.softYellow,
+                  color: AppColors.readyGreen,
                   shape: BoxShape.circle,
-                  border: Border.all(color: AppColors.surface, width: 2),
+                  border: Border.all(color: AppColors.surface, width: 1.5),
                 ),
               ),
             ),

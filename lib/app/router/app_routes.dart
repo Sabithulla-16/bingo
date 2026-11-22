@@ -14,7 +14,11 @@ class AppRoutes {
   static const String singlePlayerGame = '/single-player/game/:gameId';
   static const String singlePlayerResult = '/single-player/result/:gameId';
 
-  // Multiplayer
+  // Multiplayer & Quick Match
+  static const String quickMatch = '/quick-match';
+  static const String quickMatchOpponentFound =
+      '/quick-match/opponent-found/:matchId';
+  static const String quickMatchResult = '/quick-match/result/:matchId';
   static const String multiplayerMenu = '/multiplayer';
   static const String createRoom = '/multiplayer/create-room';
   static const String joinRoom = '/multiplayer/join-room';
@@ -38,6 +42,10 @@ class AppRoutes {
       '/single-player/game/$gameId';
   static String singlePlayerResultPath(String gameId) =>
       '/single-player/result/$gameId';
+  static String quickMatchOpponentFoundPath(String matchId) =>
+      '/quick-match/opponent-found/$matchId';
+  static String quickMatchResultPath(String matchId) =>
+      '/quick-match/result/$matchId';
   static String roomLobbyPath(String roomId) =>
       '/multiplayer/room/$roomId/lobby';
   static String multiplayerLobbyPath(String roomId) => roomLobbyPath(roomId);

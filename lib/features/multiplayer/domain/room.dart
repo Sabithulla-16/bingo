@@ -5,16 +5,25 @@ enum RoomStatus {
   waiting,
   preparing,
   inProgress,
-  completed;
+  completed,
+  closed,
+  expired;
 
   static RoomStatus fromString(String? value) {
-    switch (value) {
+    switch (value?.toLowerCase()) {
       case 'preparing':
+      case 'board_preparation':
         return RoomStatus.preparing;
       case 'in_progress':
+      case 'playing':
         return RoomStatus.inProgress;
       case 'completed':
+      case 'round_completed':
         return RoomStatus.completed;
+      case 'closed':
+        return RoomStatus.closed;
+      case 'expired':
+        return RoomStatus.expired;
       case 'waiting':
       default:
         return RoomStatus.waiting;
@@ -29,6 +38,10 @@ enum RoomStatus {
         return 'in_progress';
       case RoomStatus.completed:
         return 'completed';
+      case RoomStatus.closed:
+        return 'closed';
+      case RoomStatus.expired:
+        return 'expired';
       case RoomStatus.waiting:
         return 'waiting';
     }
@@ -45,8 +58,10 @@ class Room {
   final int maxPlayers;
   final int prepTimeSeconds;
   final int turnTimeSeconds;
+  final String matchType;
   final RoomStatus status;
   final DateTime createdAt;
+  final DateTime? closedAt;
 
   const Room({
     required this.id,
@@ -56,14 +71,20 @@ class Room {
     required this.maxPlayers,
     required this.prepTimeSeconds,
     required this.turnTimeSeconds,
+    this.matchType = 'PRIVATE_ROOM',
     required this.status,
     required this.createdAt,
+    this.closedAt,
   });
 
   bool get isWaiting => status == RoomStatus.waiting;
   bool get isPreparing => status == RoomStatus.preparing;
   bool get isInProgress => status == RoomStatus.inProgress;
   bool get isCompleted => status == RoomStatus.completed;
+  bool get isClosed => status == RoomStatus.closed;
+  bool get isExpired => status == RoomStatus.expired;
+  bool get isQuickMatch =>
+      matchType == 'QUICK_MATCH' || name.toLowerCase().contains('quick match');
 
   Room copyWith({
     String? id,
@@ -73,8 +94,10 @@ class Room {
     int? maxPlayers,
     int? prepTimeSeconds,
     int? turnTimeSeconds,
+    String? matchType,
     RoomStatus? status,
     DateTime? createdAt,
+    DateTime? closedAt,
   }) {
     return Room(
       id: id ?? this.id,
@@ -84,8 +107,10 @@ class Room {
       maxPlayers: maxPlayers ?? this.maxPlayers,
       prepTimeSeconds: prepTimeSeconds ?? this.prepTimeSeconds,
       turnTimeSeconds: turnTimeSeconds ?? this.turnTimeSeconds,
+      matchType: matchType ?? this.matchType,
       status: status ?? this.status,
       createdAt: createdAt ?? this.createdAt,
+      closedAt: closedAt ?? this.closedAt,
     );
   }
 
@@ -98,10 +123,14 @@ class Room {
       maxPlayers: (map['max_players'] as num?)?.toInt() ?? 4,
       prepTimeSeconds: (map['prep_time_seconds'] as num?)?.toInt() ?? 45,
       turnTimeSeconds: (map['turn_time_seconds'] as num?)?.toInt() ?? 20,
+      matchType: (map['match_type'] as String?)?.toUpperCase() ?? 'PRIVATE_ROOM',
       status: RoomStatus.fromString(map['status'] as String?),
       createdAt: map['created_at'] != null
           ? DateTime.parse(map['created_at'] as String)
           : DateTime.now(),
+      closedAt: map['closed_at'] != null
+          ? DateTime.parse(map['closed_at'] as String)
+          : null,
     );
   }
 
@@ -114,8 +143,10 @@ class Room {
       'max_players': maxPlayers,
       'prep_time_seconds': prepTimeSeconds,
       'turn_time_seconds': turnTimeSeconds,
+      'match_type': matchType,
       'status': status.toDbString(),
       'created_at': createdAt.toIso8601String(),
+      if (closedAt != null) 'closed_at': closedAt!.toIso8601String(),
     };
   }
 
